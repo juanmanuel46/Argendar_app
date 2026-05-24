@@ -12,11 +12,13 @@ Notifications.setNotificationHandler({
 
 export async function registerForPushNotifications() {
   if (!Device.isDevice) {
-    console.log('Las notificaciones solo funcionan en dispositivo real')
+    console.log('No es dispositivo real')
     return null
   }
 
   const { status: existingStatus } = await Notifications.getPermissionsAsync()
+  console.log('Status permisos:', existingStatus)
+
   let finalStatus = existingStatus
 
   if (existingStatus !== 'granted') {
@@ -24,14 +26,23 @@ export async function registerForPushNotifications() {
     finalStatus = status
   }
 
+  console.log('Final status:', finalStatus)
+
   if (finalStatus !== 'granted') {
-    console.log('Permiso de notificaciones denegado')
+    console.log('Permiso denegado')
     return null
   }
 
-  const token = (await Notifications.getExpoPushTokenAsync()).data
-  console.log('Push token:', token)
-  return token
+  try {
+    const token = (await Notifications.getExpoPushTokenAsync({
+      projectId: '93636524-c681-479e-b195-8b7bc28a9a90',
+    })).data
+    console.log('Token:', token)
+    return token
+  } catch (e) {
+    console.log('Error obteniendo token:', e.message)
+    return null
+  }
 }
 
 export async function savePushToken(userId, token) {
