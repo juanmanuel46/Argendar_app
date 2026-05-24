@@ -2,6 +2,7 @@ import { NavigationContainer } from '@react-navigation/native'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { registerForPushNotifications, savePushToken } from '../lib/notifications'
 
 import LoginScreen from '../screens/auth/LoginScreen'
 import EmployeeNavigator from './EmployeeNavigator'
@@ -32,6 +33,10 @@ export default function Navigation() {
     const { data } = await supabase.from('app_users').select('role').eq('id', userId).single()
     setRole(data?.role ?? 'employee')
     setLoading(false)
+
+    // Registrar push token
+    const token = await registerForPushNotifications()
+    if (token) await savePushToken(userId, token)
   }
 
   if (loading) return null
