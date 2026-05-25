@@ -1,0 +1,166 @@
+import { useEffect, useState } from 'react'
+import {
+  View, Text, TextInput, TouchableOpacity, StyleSheet,
+  Alert, ActivityIndicator, ScrollView, Switch, StatusBar
+} from 'react-native'
+import { Feather } from '@expo/vector-icons'
+import { supabase } from '../../lib/supabase'
+import { colors, radius, spacing } from '../../lib/theme'
+
+const CATEGORIAS = [
+  { icon: '✂️', nombre: 'Barbería' },   { icon: '💇', nombre: 'Peluquería' },
+  { icon: '🧖', nombre: 'Spa' },        { icon: '🩺', nombre: 'Médico' },
+  { icon: '🦷', nombre: 'Dentista' },   { icon: '🐾', nombre: 'Veterinaria' },
+  { icon: '💪', nombre: 'Gimnasio' },   { icon: '💅', nombre: 'Estética' },
+  { icon: '🤲', nombre: 'Masajes' },    { icon: '🚗', nombre: 'Lavadero' },
+  { icon: '🎾', nombre: 'Canchas' },    { icon: '🏪', nombre: 'Otro' },
+]
+
+export default function EditBusinessScreen({ route, navigation }) {
+  const { businessId } = route.params
+  const [loading,  setLoading]  = useState(true)
+  const [saving,   setSaving]   = useState(false)
+  const [nombre,   setNombre]   = useState('')
+  const [desc,     setDesc]     = useState('')
+  const [categoria, setCategoria] = useState('')
+  const [allowEmp, setAllowEmp] = useState(false)
+
+  useEffect(() => {
+    fetchBiz()
+  }, [])
+
+  async function fetchBiz() {
+    const { data } = await supabase
+      .from('businesses')
+      .select('name, description, category, allow_employee_selection')
+      .eq('id', businessId)
+      .single()
+    if (data) {
+      setNombre(data.name || '')
+      setDesc(data.description || '')
+      setCategoria(data.category || '')
+      setAllowEmp(data.allow_employee_selection || false)
+    }
+    setLoading(false)
+  }
+
+  async function guardar() {
+    if (!nombre.trim()) { Alert.alert('El nombre es requerido'); return }
+    setSaving(true)
+    const { error } = await supabase
+      .from('businesses')
+      .update({
+        name:                     nombre.trim(),
+        description:              desc.trim(),
+        category:                 categoria,
+        allow_employee_selection: allowEmp,
+      })
+      .eq('id', businessId)
+    setSaving(false)
+    if (error) { Alert.alert('Error', error.message); return }
+    Alert.alert('✓ Guardado', 'Los datos del negocio se actualizaron', [
+      { text: 'OK', onPress: () => navigation.goBack() }
+    ])
+  }
+
+  if (loading) return (
+    <View style={s.center}><ActivityIndicator color={colors.primary} size="large" /></View>
+  )
+
+  return (
+    <ScrollView style={s.root} contentContainerStyle={{ paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
+      <StatusBar barStyle="light-content" />
+
+      <Text style={s.titulo}>Editar negocio</Text>
+      <Text style={s.sub}>Esta información la ven tus clientes al reservar</Text>
+
+      <Text style={s.label}>Nombre del negocio</Text>
+      <View style={s.inputWrap}>
+        <Feather name="briefcase" size={16} color={colors.textMuted} style={s.inputIcon} />
+        <TextInput
+          style={s.input}
+          placeholder="Ej: Barbería El Toro"
+          placeholderTextColor={colors.textMuted}
+          value={nombre}
+          onChangeText={setNombre}
+          autoCapitalize="words"
+        />
+      </View>
+
+      <Text style={s.label}>Descripción</Text>
+      <TextInput
+        style={[s.inputWrap, { height: 90, paddingTop: 12, alignItems: 'flex-start', paddingLeft: 14 }]}
+        placeholder="Contá brevemente qué ofrecés..."
+        placeholderTextColor={colors.textMuted}
+        value={desc}
+        onChangeText={setDesc}
+        multiline
+        numberOfLines={3}
+        textAlignVertical="top"
+        style={s.inputMulti}
+      />
+
+      <Text style={s.label}>Categoría</Text>
+      <View style={s.categorias}>
+        {CATEGORIAS.map(cat => (
+          <TouchableOpacity
+            key={cat.nombre}
+            style={[s.catBtn, categoria === cat.nombre && s.catBtnActive]}
+            onPress={() => setCategoria(cat.nombre)}
+            activeOpacity={0.7}
+          >
+            <Text style={s.catIcon}>{cat.icon}</Text>
+            <Text style={[s.catLabel, categoria === cat.nombre && { color: colors.primary }]}>
+              {cat.nombre}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <View style={s.toggleRow}>
+        <View style={{ flex: 1 }}>
+          <Text style={s.toggleTitle}>Selección de colaborador</Text>
+          <Text style={s.toggleSub}>El cliente puede elegir con quién atenderse</Text>
+        </View>
+        <Switch
+          value={allowEmp}
+          onValueChange={setAllowEmp}
+          trackColor={{ false: '#333', true: colors.primary }}
+          thumbColor="white"
+        />
+      </View>
+
+      <TouchableOpacity style={s.btn} onPress={guardar} disabled={saving} activeOpacity={0.85}>
+        {saving
+          ? <ActivityIndicator color="white" />
+          : <>
+              <Text style={s.btnText}>Guardar cambios</Text>
+              <Feather name="check" size={18} color="white" />
+            </>
+        }
+      </TouchableOpacity>
+    </ScrollView>
+  )
+}
+
+const s = StyleSheet.create({
+  root:         { flex: 1, backgroundColor: colors.bg, paddingTop: 20, paddingHorizontal: spacing.lg },
+  center:       { flex: 1, backgroundColor: colors.bg, justifyContent: 'center', alignItems: 'center' },
+  titulo:       { fontSize: 24, fontWeight: '800', color: colors.textPrimary, letterSpacing: -0.5, marginBottom: 4 },
+  sub:          { fontSize: 14, color: colors.textMuted, marginBottom: spacing.lg },
+  label:        { fontSize: 12, fontWeight: '600', color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8, marginTop: 12 },
+  inputWrap:    { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 14 },
+  inputIcon:    { marginRight: 10 },
+  input:        { flex: 1, paddingVertical: 14, fontSize: 15, color: colors.textPrimary },
+  inputMulti:   { backgroundColor: colors.card, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, padding: 14, fontSize: 14, color: colors.textPrimary, minHeight: 90, textAlignVertical: 'top' },
+  categorias:   { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
+  catBtn:       { width: '30%', backgroundColor: colors.card, borderRadius: radius.md, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: colors.border },
+  catBtnActive: { borderColor: colors.primary, backgroundColor: colors.primaryGlow },
+  catIcon:      { fontSize: 22, marginBottom: 4 },
+  catLabel:     { fontSize: 11, color: colors.textMuted, textAlign: 'center' },
+  toggleRow:    { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderRadius: radius.md, padding: 16, borderWidth: 1, borderColor: colors.border, marginTop: 16, marginBottom: 8 },
+  toggleTitle:  { fontSize: 15, color: colors.textPrimary, fontWeight: '500' },
+  toggleSub:    { fontSize: 12, color: colors.textMuted, marginTop: 2 },
+  btn:          { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: colors.primary, borderRadius: radius.lg, padding: 16, marginTop: 24 },
+  btnText:      { color: 'white', fontSize: 16, fontWeight: '700' },
+})

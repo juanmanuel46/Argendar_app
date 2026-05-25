@@ -1,36 +1,47 @@
-import { useEffect, useState, useCallback } from 'react'
-import {View, Text, StyleSheet, TouchableOpacity, ScrollView,ActivityIndicator, Switch, Alert, TextInput, Modal, FlatList} from 'react-native'
+import { useState, useCallback } from 'react'
+import {
+  View, Text, StyleSheet, TouchableOpacity, ScrollView,
+  ActivityIndicator, Switch, Alert, TextInput, Modal, Image
+} from 'react-native'
+import { useFocusEffect } from '@react-navigation/native'
+import { Feather } from '@expo/vector-icons'
+import * as ImagePicker from 'expo-image-picker'
 import { supabase } from '../../lib/supabase'
-import { useNavigation } from '@react-navigation/native'
-
-const DIAS_SEMANA = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
+import { colors, radius, spacing } from '../../lib/theme'
 
 export default function SettingsScreen({ navigation }) {
-  const [loading,    setLoading]    = useState(true)
-  const [negocio,    setNegocio]    = useState(null)
-  const [servicios,  setServicios]  = useState([])
-  const [empleados,  setEmpleados]  = useState([])
-  const [businessId, setBusinessId] = useState(null)
+  const [loading,     setLoading]     = useState(true)
+  const [negocio,     setNegocio]     = useState(null)
+  const [servicios,   setServicios]   = useState([])
+  const [empleados,   setEmpleados]   = useState([])
+  const [businessId,  setBusinessId]  = useState(null)
+  const [user,        setUser]        = useState(null)
 
   // Modales
-  const [modalServicio,  setModalServicio]  = useState(false)
-  const [modalEmpleado,  setModalEmpleado]  = useState(false)
-  const [editServicio,   setEditServicio]   = useState(null)
-  const [editEmpleado,   setEditEmpleado]   = useState(null)
+  const [modalServicio, setModalServicio] = useState(false)
+  const [modalEmpleado, setModalEmpleado] = useState(false)
+  const [editServicio,  setEditServicio]  = useState(null)
+  const [editEmpleado,  setEditEmpleado]  = useState(null)
 
-  // Forms
+  // Form servicio
   const [sNombre,   setSNombre]   = useState('')
   const [sPrecio,   setSPrecio]   = useState('')
   const [sDuracion, setSDuracion] = useState('30')
-  const [eNombre,   setENombre]   = useState('')
-  const [eRol,      setERol]      = useState('')
-  const [eEmail,    setEEmail]    = useState('')
 
-  useEffect(() => { fetchData() }, [])
+  // Form empleado
+  const [eNombre,      setENombre]      = useState('')
+  const [eRol,         setERol]         = useState('')
+  const [eEmail,       setEEmail]       = useState('')
+  const [eAvatarUri,   setEAvatarUri]   = useState(null)
+  const [uploadingImg, setUploadingImg] = useState(false)
 
-  const fetchData = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    const { data: appUser } = await supabase.from('app_users').select('business_id').eq('id', user.id).single()
+  useFocusEffect(useCallback(() => { fetchData() }, []))
+
+  async function fetchData() {
+    const { data: { user: u } } = await supabase.auth.getUser()
+    setUser(u)
+    const { data: appUser } = await supabase
+      .from('app_users').select('business_id').eq('id', u.id).single()
     if (!appUser) { setLoading(false); return }
     setBusinessId(appUser.business_id)
 
@@ -39,269 +50,417 @@ export default function SettingsScreen({ navigation }) {
       supabase.from('services').select('*').eq('business_id', appUser.business_id).order('name'),
       supabase.from('employees').select('*').eq('business_id', appUser.business_id).order('name'),
     ])
-
     setNegocio(biz)
     setServicios(servs ?? [])
     setEmpleados(emps ?? [])
     setLoading(false)
-  }, [])
+  }
 
-  async function toggleEmpleados(val) {
+  // ── Toggle selección empleados ──────────────────────────────────────────
+  async function toggleSeleccionEmpleado(val) {
     await supabase.from('businesses').update({ allow_employee_selection: val }).eq('id', businessId)
     setNegocio(prev => ({ ...prev, allow_employee_selection: val }))
   }
 
-  // SERVICIOS
+  // ── Servicios ───────────────────────────────────────────────────────────
   function abrirNuevoServicio() {
-    setEditServicio(null)
-    setSNombre(''); setSPrecio(''); setSDuracion('30')
+    setEditServicio(null); setSNombre(''); setSPrecio(''); setSDuracion('30')
     setModalServicio(true)
   }
-
   function abrirEditarServicio(s) {
-    setEditServicio(s)
-    setSNombre(s.name); setSPrecio(String(s.price)); setSDuracion(String(s.duration_minutes))
+    setEditServicio(s); setSNombre(s.name); setSPrecio(String(s.price)); setSDuracion(String(s.duration_minutes))
     setModalServicio(true)
   }
-
   async function guardarServicio() {
     if (!sNombre.trim() || !sPrecio.trim()) { Alert.alert('Completá nombre y precio'); return }
-    const data = { name: sNombre.trim(), price: parseInt(sPrecio), duration_minutes: parseInt(sDuracion) || 30, business_id: businessId, active: true }
-    if (editServicio) {
-      await supabase.from('services').update(data).eq('id', editServicio.id)
-    } else {
-      await supabase.from('services').insert(data)
-    }
-    setModalServicio(false)
-    fetchData()
+    const row = { name: sNombre.trim(), price: parseInt(sPrecio), duration_minutes: parseInt(sDuracion)||30, business_id: businessId, active: true }
+    editServicio
+      ? await supabase.from('services').update(row).eq('id', editServicio.id)
+      : await supabase.from('services').insert(row)
+    setModalServicio(false); fetchData()
   }
-
+  async function eliminarServicio(s) {
+    Alert.alert('Eliminar servicio', `¿Eliminar "${s.name}"?`, [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Eliminar', style: 'destructive', onPress: async () => {
+        await supabase.from('services').delete().eq('id', s.id); fetchData()
+      }},
+    ])
+  }
   async function toggleServicio(s) {
     await supabase.from('services').update({ active: !s.active }).eq('id', s.id)
-    fetchData()
+    setServicios(prev => prev.map(x => x.id===s.id ? {...x,active:!s.active} : x))
   }
 
-  // EMPLEADOS
+  // ── Empleados ───────────────────────────────────────────────────────────
   function abrirNuevoEmpleado() {
-    setEditEmpleado(null)
-    setENombre(''); setERol(''); setEEmail('')
+    setEditEmpleado(null); setENombre(''); setERol(''); setEEmail(''); setEAvatarUri(null)
     setModalEmpleado(true)
   }
-
   function abrirEditarEmpleado(e) {
-    setEditEmpleado(e)
-    setENombre(e.name); setERol(e.role || ''); setEEmail(e.email || '')
-    setModalEmpleado(true)
+    setEditEmpleado(e); setENombre(e.name); setERol(e.role||''); setEEmail(e.email||'')
+    setEAvatarUri(e.avatar_url||null); setModalEmpleado(true)
+  }
+// ── Picker: cámara O galería ─────────────────────────────────────────
+async function pickImage() {
+  Alert.alert(
+    'Foto del empleado',
+    '¿De dónde querés elegir la foto?',
+    [
+      {
+        text: 'Cámara',
+        onPress: async () => {
+          const { status } = await ImagePicker.requestCameraPermissionsAsync()
+          if (status !== 'granted') { Alert.alert('Permiso de cámara denegado'); return }
+          const r = await ImagePicker.launchCameraAsync({
+            mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.6,
+          })
+          if (!r.canceled) setEAvatarUri(r.assets[0].uri)
+        }
+      },
+      {
+        text: 'Galería',
+        onPress: async () => {
+          const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+          if (status !== 'granted') { Alert.alert('Permiso de galería denegado'); return }
+          const r = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.6,
+          })
+          if (!r.canceled) setEAvatarUri(r.assets[0].uri)
+        }
+      },
+      { text: 'Cancelar', style: 'cancel' }
+    ]
+  )
+}
+
+// ── Upload corregido con ArrayBuffer ─────────────────────────────────
+async function uploadAvatar(uri) {
+  try {
+    const ext  = uri.split('.').pop()?.split('?')[0] || 'jpg'
+    const path = `empleados/${Date.now()}.${ext}`
+
+    const resp       = await fetch(uri)
+    const arrayBuffer = await resp.arrayBuffer()
+
+    const { error } = await supabase.storage
+      .from('avatars')
+      .upload(path, arrayBuffer, { contentType: `image/${ext}`, upsert: true })
+
+    if (error) throw error
+
+    return supabase.storage.from('avatars').getPublicUrl(path).data.publicUrl
+  } catch (e) {
+    console.error('Upload:', e)
+    return null
+  }
+}
+async function guardarEmpleado() {
+  if (!eNombre.trim()) { Alert.alert('Ingresá el nombre del empleado'); return }
+  setUploadingImg(true)
+
+  let avatarUrl = editEmpleado?.avatar_url || null
+  if (eAvatarUri && eAvatarUri !== editEmpleado?.avatar_url) {
+    avatarUrl = await uploadAvatar(eAvatarUri)
   }
 
-  async function guardarEmpleado() {
-    if (!eNombre.trim()) { Alert.alert('Ingresá el nombre del empleado'); return }
-    const data = { name: eNombre.trim(), role: eRol.trim(), email: eEmail.trim().toLowerCase() || null, business_id: businessId, active: true }
-    if (editEmpleado) {
-      await supabase.from('employees').update(data).eq('id', editEmpleado.id)
-    } else {
-      await supabase.from('employees').insert(data)
-    }
-    setModalEmpleado(false)
-    if (!editEmpleado && eEmail.trim()) {
-      Alert.alert('✓ Empleado agregado', `Si ${eNombre} descarga Argendar e inicia sesión con ${eEmail}, podrá ver sus turnos automáticamente.`)
-    }
-    fetchData()
+  const row = {
+    name:        eNombre.trim(),
+    role:        eRol.trim() || null,
+    email:       eEmail.trim().toLowerCase() || null,
+    avatar_url:  avatarUrl,
+    business_id: businessId,
+    active:      true,
   }
 
+  if (editEmpleado) {
+    await supabase.from('employees').update(row).eq('id', editEmpleado.id)
+  } else {
+    const { data: empInsertado } = await supabase
+      .from('employees')
+      .insert(row)
+      .select()
+      .single()
+
+    // Si tiene email → mandar invitación
+    if (eEmail.trim() && empInsertado) {
+      try {
+        await supabase.functions.invoke('invite-employee', {
+          body: { email: eEmail.trim().toLowerCase(), negocio: negocio?.name }
+        })
+        Alert.alert(
+          '✓ Empleado agregado',
+          `Le mandamos una invitación a ${eEmail} para que descargue la app y cree su contraseña.`
+        )
+      } catch (e) {
+        // Si falla la invitación no es crítico, el empleado igual queda creado
+        Alert.alert(
+          '✓ Empleado agregado',
+          `${eNombre} fue agregado. No pudimos enviar la invitación por email, podés reintentarlo después.`
+        )
+      }
+    }
+  }
+
+  setUploadingImg(false)
+  setModalEmpleado(false)
+  fetchData()
+}
+  async function eliminarEmpleado(e) {
+    Alert.alert('Eliminar empleado', `¿Eliminar a ${e.name} del sistema? Esta acción no se puede deshacer.`, [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Eliminar', style: 'destructive', onPress: async () => {
+        await supabase.from('employees').delete().eq('id', e.id); fetchData()
+      }},
+    ])
+  }
   async function toggleEmpleadoActivo(e) {
     await supabase.from('employees').update({ active: !e.active }).eq('id', e.id)
-    fetchData()
+    setEmpleados(prev => prev.map(x => x.id===e.id ? {...x,active:!e.active} : x))
   }
 
-  if (loading) return <View style={s.center}><ActivityIndicator color="#7C5CFC" size="large" /></View>
+  if (loading) return <View style={s.center}><ActivityIndicator color={colors.primary} size="large" /></View>
 
-  const diasTrialRestantes = negocio?.trial_ends_at
-    ? Math.max(0, Math.ceil((new Date(negocio.trial_ends_at) - new Date()) / (1000 * 60 * 60 * 24)))
+  const diasTrial = negocio?.trial_ends_at
+    ? Math.max(0, Math.ceil((new Date(negocio.trial_ends_at) - new Date()) / 86400000))
     : null
 
   return (
     <>
-      <ScrollView style={s.container} contentContainerStyle={{ paddingBottom: 40 }}>
-        <Text style={s.titulo}>Configuración</Text>
+      <ScrollView style={s.root} contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+        <Text style={s.titulo}>Ajustes</Text>
         <Text style={s.sub}>{negocio?.name}</Text>
 
-        {/* Suscripción */}
-        <Text style={s.seccion}>Suscripción</Text>
-        <View style={s.seccionCard}>
-          <View style={s.subRow}>
-            <View>
-              <Text style={s.subEstado}>
-                {negocio?.subscription_status === 'trial' ? '🟡 Período de prueba' :
-                 negocio?.subscription_status === 'active' ? '🟢 Activa' : '🔴 Vencida'}
-              </Text>
-              {negocio?.subscription_status === 'trial' && diasTrialRestantes !== null && (
-                <Text style={s.subDias}>{diasTrialRestantes} días restantes de prueba gratuita</Text>
-              )}
-              {negocio?.subscription_status === 'active' && (
-                <Text style={s.subDias}>$5 USD/mes · Próximo cobro: 30 días</Text>
-              )}
+        {/* ── Negocio ── */}
+        <Text style={s.seccion}>Mi negocio</Text>
+        <View style={s.card}>
+          <TouchableOpacity
+            style={s.row}
+            onPress={() => navigation.navigate('EditBusiness', { businessId })}
+            activeOpacity={0.7}
+          >
+            <View style={[s.iconBox, { backgroundColor: colors.primaryGlow }]}>
+              <Feather name="briefcase" size={15} color={colors.primary} />
             </View>
-            {negocio?.subscription_status !== 'active' && (
-              <TouchableOpacity
-                style={s.btnActivar}
-                onPress={() => navigation.navigate('Settings', {screen: 'Subscription'})}
-              >
-                <Text style={s.btnActivarText}>
-                  Activar
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-
-        {/* Tu link */}
-        <Text style={s.seccion}>Tu link de reservas</Text>
-        <View style={s.seccionCard}>
-          <View style={s.configItem}>
-            <Text style={s.configIcon}>🔗</Text>
             <View style={{ flex: 1 }}>
-              <Text style={s.configTitulo}>argendar.com.ar/{negocio?.slug}</Text>
-              <Text style={s.configSub}>Compartí este link con tus clientes</Text>
+              <Text style={s.rowTitle}>{negocio?.name}</Text>
+              <Text style={s.rowSub}>{negocio?.category} · Editar info del negocio</Text>
+            </View>
+            <Feather name="chevron-right" size={16} color={colors.textMuted} />
+          </TouchableOpacity>
+
+          <View style={s.divider} />
+
+          <View style={s.row}>
+            <View style={[s.iconBox, { backgroundColor: colors.primaryGlow }]}>
+              <Feather name="link" size={15} color={colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.rowTitle}>argendar.com.ar/{negocio?.slug}</Text>
+              <Text style={s.rowSub}>Tu link de reservas · compartí con tus clientes</Text>
             </View>
           </View>
         </View>
 
-        {/* Servicios */}
-        <View style={s.seccionHeader}>
+        {/* ── Suscripción ── */}
+        <Text style={s.seccion}>Suscripción</Text>
+        <TouchableOpacity
+          style={s.card}
+          onPress={() => navigation.navigate('Subscription')}
+          activeOpacity={0.7}
+        >
+          <View style={s.row}>
+            <View style={[s.iconBox, { backgroundColor: colors.warningBg }]}>
+              <Feather name="zap" size={15} color={colors.warning} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={s.rowTitle}>
+                {negocio?.subscription_status === 'trial'  ? 'Período de prueba' :
+                 negocio?.subscription_status === 'active' ? 'Plan activo' : 'Suscripción vencida'}
+              </Text>
+              <Text style={s.rowSub}>
+                {negocio?.subscription_status === 'trial' && diasTrial !== null
+                  ? `${diasTrial} días restantes · Tocá para activar`
+                  : negocio?.subscription_status === 'active'
+                  ? '$5 USD/mes'
+                  : 'Activá tu plan para seguir recibiendo reservas'}
+              </Text>
+            </View>
+            <Feather name="chevron-right" size={16} color={colors.textMuted} />
+          </View>
+        </TouchableOpacity>
+
+        {/* ── Servicios ── */}
+        <View style={s.seccionRow}>
           <Text style={s.seccion}>Servicios</Text>
           <TouchableOpacity onPress={abrirNuevoServicio}>
-            <Text style={s.btnAgregar}>+ Agregar</Text>
+            <Text style={s.addBtn}>+ Agregar</Text>
           </TouchableOpacity>
         </View>
-        <View style={s.seccionCard}>
+        <View style={s.card}>
           {servicios.length === 0 && (
-            <View style={s.configItem}>
-              <Text style={s.configSub}>No hay servicios. Agregá el primero.</Text>
-            </View>
+            <Text style={s.emptyMsg}>No hay servicios. Agregá el primero.</Text>
           )}
           {servicios.map((serv, i) => (
             <View key={serv.id}>
               {i > 0 && <View style={s.divider} />}
-              <TouchableOpacity style={s.configItem} onPress={() => abrirEditarServicio(serv)}>
-                <Text style={s.configIcon}>✂️</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={[s.configTitulo, !serv.active && { color: '#555' }]}>{serv.name}</Text>
-                  <Text style={s.configSub}>{serv.duration_minutes} min · ${serv.price}</Text>
+              <View style={s.row}>
+                <View style={[s.iconBox, { backgroundColor: colors.primaryGlow }]}>
+                  <Feather name="scissors" size={14} color={colors.primary} />
                 </View>
-                <Switch
-                  value={serv.active}
-                  onValueChange={() => toggleServicio(serv)}
-                  trackColor={{ false: '#333', true: '#7C5CFC' }}
-                  thumbColor="white"
-                />
-              </TouchableOpacity>
+                <TouchableOpacity style={{ flex: 1 }} onPress={() => abrirEditarServicio(serv)}>
+                  <Text style={[s.rowTitle, !serv.active && { color: colors.textMuted }]}>{serv.name}</Text>
+                  <Text style={s.rowSub}>{serv.duration_minutes} min · ${serv.price}</Text>
+                </TouchableOpacity>
+                <Switch value={serv.active} onValueChange={() => toggleServicio(serv)} trackColor={{false:'#333',true:colors.primary}} thumbColor="white" />
+                <TouchableOpacity onPress={() => eliminarServicio(serv)} style={{ padding: 6, marginLeft: 4 }}>
+                  <Feather name="trash-2" size={14} color={colors.danger} />
+                </TouchableOpacity>
+              </View>
             </View>
           ))}
         </View>
 
-        {/* Empleados */}
-        <View style={s.seccionHeader}>
+        {/* ── Empleados ── */}
+        <View style={s.seccionRow}>
           <Text style={s.seccion}>Empleados</Text>
           <TouchableOpacity onPress={abrirNuevoEmpleado}>
-            <Text style={s.btnAgregar}>+ Agregar</Text>
+            <Text style={s.addBtn}>+ Agregar</Text>
           </TouchableOpacity>
         </View>
-        <View style={s.seccionCard}>
-          <View style={s.configItem}>
-            <Text style={s.configIcon}>👥</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={s.configTitulo}>Selección de colaborador</Text>
-              <Text style={s.configSub}>El cliente elige con quién atenderse</Text>
+        <View style={s.card}>
+          {/* Toggle selección */}
+          <View style={s.row}>
+            <View style={[s.iconBox, { backgroundColor: colors.primaryGlow }]}>
+              <Feather name="users" size={14} color={colors.primary} />
             </View>
-            <Switch
-              value={negocio?.allow_employee_selection || false}
-              onValueChange={toggleEmpleados}
-              trackColor={{ false: '#333', true: '#7C5CFC' }}
-              thumbColor="white"
-            />
+            <View style={{ flex: 1 }}>
+              <Text style={s.rowTitle}>Selección de colaborador</Text>
+              <Text style={s.rowSub}>El cliente elige con quién atenderse</Text>
+            </View>
+            <Switch value={negocio?.allow_employee_selection||false} onValueChange={toggleSeleccionEmpleado} trackColor={{false:'#333',true:colors.primary}} thumbColor="white" />
           </View>
-          {empleados.length > 0 && <View style={s.divider} />}
+
           {empleados.map((emp, i) => (
             <View key={emp.id}>
-              {i > 0 && <View style={s.divider} />}
-              <TouchableOpacity style={s.configItem} onPress={() => abrirEditarEmpleado(emp)}>
-                <View style={s.empAvatar}>
-                  <Text style={s.empAvatarText}>{emp.name.slice(0,2).toUpperCase()}</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[s.configTitulo, !emp.active && { color: '#555' }]}>{emp.name}</Text>
-                  <Text style={s.configSub}>{emp.role || 'Empleado'}{emp.email ? ` · ${emp.email}` : ''}</Text>
-                </View>
-                <Switch
-                  value={emp.active}
-                  onValueChange={() => toggleEmpleadoActivo(emp)}
-                  trackColor={{ false: '#333', true: '#7C5CFC' }}
-                  thumbColor="white"
-                />
-              </TouchableOpacity>
+              <View style={s.divider} />
+              <View style={s.row}>
+                {/* Avatar */}
+                {emp.avatar_url
+                  ? <Image source={{ uri: emp.avatar_url }} style={s.empAvatar} />
+                  : <View style={s.empAvatarFallback}>
+                      <Text style={s.empAvatarText}>{emp.name.slice(0,2).toUpperCase()}</Text>
+                    </View>
+                }
+                {/* Info → toca para horarios */}
+                <TouchableOpacity
+                  style={{ flex: 1 }}
+                  onPress={() => navigation.navigate('EmployeeSchedule', { employee: emp })}
+                >
+                  <Text style={[s.rowTitle, !emp.active && { color: colors.textMuted }]}>{emp.name}</Text>
+                  <Text style={s.rowSub}>
+                    {emp.role || 'Empleado'}
+                    {emp.email ? ` · ${emp.email}` : ''}
+                    {' · '}
+                    <Text style={{ color: colors.primary }}>Ver horarios →</Text>
+                  </Text>
+                </TouchableOpacity>
+                {/* Editar */}
+                <TouchableOpacity onPress={() => abrirEditarEmpleado(emp)} style={{ padding: 6 }}>
+                  <Feather name="edit-2" size={14} color={colors.textMuted} />
+                </TouchableOpacity>
+                {/* Eliminar */}
+                <TouchableOpacity onPress={() => eliminarEmpleado(emp)} style={{ padding: 6 }}>
+                  <Feather name="trash-2" size={14} color={colors.danger} />
+                </TouchableOpacity>
+                {/* Toggle activo */}
+                <Switch value={emp.active} onValueChange={() => toggleEmpleadoActivo(emp)} trackColor={{false:'#333',true:colors.primary}} thumbColor="white" />
+              </View>
             </View>
           ))}
           {empleados.length === 0 && (
-            <View style={[s.configItem, { paddingTop: 0 }]}>
-              <Text style={s.configSub}>No hay empleados. Agregá el primero.</Text>
-            </View>
+            <><View style={s.divider} /><Text style={s.emptyMsg}>No hay empleados. Agregá el primero.</Text></>
           )}
         </View>
 
-        {/* Cerrar sesión */}
+        {/* ── Cuenta ── */}
+        <Text style={s.seccion}>Cuenta</Text>
+        <View style={s.card}>
+          <View style={s.row}>
+            <View style={[s.iconBox, { backgroundColor: colors.card }]}>
+              <Feather name="user" size={15} color={colors.textMuted} />
+            </View>
+            <Text style={[s.rowTitle, { flex: 1 }]}>{user?.email}</Text>
+          </View>
+        </View>
+
         <TouchableOpacity style={s.btnLogout} onPress={() => supabase.auth.signOut()}>
+          <Feather name="log-out" size={16} color={colors.danger} />
           <Text style={s.btnLogoutText}>Cerrar sesión</Text>
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Modal Servicio */}
+      {/* ── Modal Servicio ── */}
       <Modal visible={modalServicio} animationType="slide" transparent>
-        <View style={s.modalOverlay}>
-          <View style={s.modalCard}>
-            <Text style={s.modalTitulo}>{editServicio ? 'Editar servicio' : 'Nuevo servicio'}</Text>
-            <Text style={s.modalLabel}>Nombre</Text>
-            <TextInput style={s.modalInput} value={sNombre} onChangeText={setSNombre} placeholder="Corte de cabello" placeholderTextColor="#555" />
-            <View style={{ flexDirection: 'row', gap: 12 }}>
-              <View style={{ flex: 1 }}>
-                <Text style={s.modalLabel}>Precio $</Text>
-                <TextInput style={s.modalInput} value={sPrecio} onChangeText={setSPrecio} keyboardType="numeric" placeholder="3500" placeholderTextColor="#555" />
+        <View style={s.overlay}>
+          <View style={s.sheet}>
+            <View style={s.handle} />
+            <Text style={s.sheetTitle}>{editServicio ? 'Editar servicio' : 'Nuevo servicio'}</Text>
+            <Text style={s.sheetLabel}>Nombre</Text>
+            <TextInput style={s.sheetInput} value={sNombre} onChangeText={setSNombre} placeholder="Corte de cabello" placeholderTextColor={colors.textMuted} />
+            <View style={{ flexDirection:'row', gap:12 }}>
+              <View style={{ flex:1 }}>
+                <Text style={s.sheetLabel}>Precio $</Text>
+                <TextInput style={s.sheetInput} value={sPrecio} onChangeText={setSPrecio} keyboardType="numeric" placeholder="3500" placeholderTextColor={colors.textMuted} />
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.modalLabel}>Duración (min)</Text>
-                <TextInput style={s.modalInput} value={sDuracion} onChangeText={setSDuracion} keyboardType="numeric" placeholder="30" placeholderTextColor="#555" />
+              <View style={{ flex:1 }}>
+                <Text style={s.sheetLabel}>Duración (min)</Text>
+                <TextInput style={s.sheetInput} value={sDuracion} onChangeText={setSDuracion} keyboardType="numeric" placeholder="30" placeholderTextColor={colors.textMuted} />
               </View>
             </View>
-            <View style={s.modalBtns}>
-              <TouchableOpacity style={s.modalBtnCancel} onPress={() => setModalServicio(false)}>
-                <Text style={s.modalBtnCancelText}>Cancelar</Text>
+            <View style={s.sheetBtns}>
+              <TouchableOpacity style={s.sheetCancel} onPress={() => setModalServicio(false)}>
+                <Text style={s.sheetCancelText}>Cancelar</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={s.modalBtnOk} onPress={guardarServicio}>
-                <Text style={s.modalBtnOkText}>Guardar</Text>
+              <TouchableOpacity style={s.sheetOk} onPress={guardarServicio}>
+                <Text style={s.sheetOkText}>Guardar</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
 
-      {/* Modal Empleado */}
+      {/* ── Modal Empleado ── */}
       <Modal visible={modalEmpleado} animationType="slide" transparent>
-        <View style={s.modalOverlay}>
-          <View style={s.modalCard}>
-            <Text style={s.modalTitulo}>{editEmpleado ? 'Editar empleado' : 'Nuevo empleado'}</Text>
-            <Text style={s.modalLabel}>Nombre completo *</Text>
-            <TextInput style={s.modalInput} value={eNombre} onChangeText={setENombre} placeholder="Matías Herrera" placeholderTextColor="#555" autoCapitalize="words" />
-            <Text style={s.modalLabel}>Rol / Especialidad</Text>
-            <TextInput style={s.modalInput} value={eRol} onChangeText={setERol} placeholder="Barbero Senior" placeholderTextColor="#555" />
-            <Text style={s.modalLabel}>Email (para que inicie sesión en la app)</Text>
-            <TextInput style={s.modalInput} value={eEmail} onChangeText={setEEmail} placeholder="matias@email.com" placeholderTextColor="#555" keyboardType="email-address" autoCapitalize="none" />
-            <Text style={s.modalHint}>💡 Si ingresás el email, el empleado podrá descargar Argendar e iniciar sesión para ver sus turnos automáticamente.</Text>
-            <View style={s.modalBtns}>
-              <TouchableOpacity style={s.modalBtnCancel} onPress={() => setModalEmpleado(false)}>
-                <Text style={s.modalBtnCancelText}>Cancelar</Text>
+        <View style={s.overlay}>
+          <View style={s.sheet}>
+            <View style={s.handle} />
+            <Text style={s.sheetTitle}>{editEmpleado ? 'Editar empleado' : 'Nuevo empleado'}</Text>
+            {/* Foto */}
+            <TouchableOpacity style={s.fotoPicker} onPress={pickImage} activeOpacity={0.8}>
+              {eAvatarUri
+                ? <Image source={{ uri: eAvatarUri }} style={s.fotoImg} />
+                : <View style={s.fotoPlaceholder}>
+                    <Feather name="camera" size={22} color={colors.textMuted} />
+                    <Text style={s.fotoLabel}>Foto</Text>
+                  </View>
+              }
+            </TouchableOpacity>
+            <Text style={s.sheetLabel}>Nombre *</Text>
+            <TextInput style={s.sheetInput} value={eNombre} onChangeText={setENombre} placeholder="Matías Herrera" placeholderTextColor={colors.textMuted} autoCapitalize="words" />
+            <Text style={s.sheetLabel}>Rol / Especialidad</Text>
+            <TextInput style={s.sheetInput} value={eRol} onChangeText={setERol} placeholder="Barbero Senior" placeholderTextColor={colors.textMuted} />
+            <Text style={s.sheetLabel}>Email (acceso a la app)</Text>
+            <TextInput style={s.sheetInput} value={eEmail} onChangeText={setEEmail} placeholder="matias@email.com" placeholderTextColor={colors.textMuted} keyboardType="email-address" autoCapitalize="none" />
+            <Text style={s.sheetHint}>
+              Con el email, el empleado puede descargar la app e iniciar sesión para ver sus turnos.
+            </Text>
+            <View style={s.sheetBtns}>
+              <TouchableOpacity style={s.sheetCancel} onPress={() => setModalEmpleado(false)}>
+                <Text style={s.sheetCancelText}>Cancelar</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={s.modalBtnOk} onPress={guardarEmpleado}>
-                <Text style={s.modalBtnOkText}>Guardar</Text>
+              <TouchableOpacity style={s.sheetOk} onPress={guardarEmpleado} disabled={uploadingImg}>
+                {uploadingImg ? <ActivityIndicator color="white" size="small" /> : <Text style={s.sheetOkText}>Guardar</Text>}
               </TouchableOpacity>
             </View>
           </View>
@@ -312,38 +471,39 @@ export default function SettingsScreen({ navigation }) {
 }
 
 const s = StyleSheet.create({
-  container:        { flex: 1, backgroundColor: '#111', paddingTop: 56, paddingHorizontal: 20 },
-  center:           { flex: 1, backgroundColor: '#111', justifyContent: 'center', alignItems: 'center' },
-  titulo:           { fontSize: 22, fontWeight: '700', color: '#fff', marginBottom: 4 },
-  sub:              { fontSize: 14, color: '#666', marginBottom: 24 },
-  seccion:          { fontSize: 12, fontWeight: '600', color: '#666', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10, marginTop: 8 },
-  seccionHeader:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, marginBottom: 10 },
-  btnAgregar:       { color: '#c87aff', fontSize: 14, fontWeight: '600' },
-  seccionCard:      { backgroundColor: '#1c1c1e', borderRadius: 16, borderWidth: 1, borderColor: '#2a2a2d', marginBottom: 8, overflow: 'hidden' },
-  configItem:       { flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 },
-  configIcon:       { fontSize: 22 },
-  configTitulo:     { fontSize: 15, color: '#fff', fontWeight: '500' },
-  configSub:        { fontSize: 12, color: '#666', marginTop: 2 },
-  divider:          { height: 1, backgroundColor: '#222', marginHorizontal: 14 },
-  subRow:           { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16 },
-  subEstado:        { fontSize: 15, color: '#fff', fontWeight: '600', marginBottom: 4 },
-  subDias:          { fontSize: 12, color: '#666' },
-  btnActivar:       { backgroundColor: '#7C5CFC', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8 },
-  btnActivarText:   { color: 'white', fontWeight: '700', fontSize: 13 },
-  empAvatar:        { width: 36, height: 36, borderRadius: 18, backgroundColor: '#7C5CFC', justifyContent: 'center', alignItems: 'center' },
-  empAvatarText:    { color: 'white', fontWeight: '800', fontSize: 13 },
-  btnLogout:        { borderWidth: 1, borderColor: 'rgba(255,79,79,0.3)', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 16 },
-  btnLogoutText:    { color: '#ff6b6b', fontWeight: '600', fontSize: 15 },
-  // Modal
-  modalOverlay:     { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
-  modalCard:        { backgroundColor: '#1c1c1e', borderRadius: 24, padding: 24, paddingBottom: 36, borderTopWidth: 1, borderColor: '#2a2a2d' },
-  modalTitulo:      { fontSize: 18, fontWeight: '700', color: '#fff', marginBottom: 20 },
-  modalLabel:       { fontSize: 13, color: '#888', fontWeight: '600', marginBottom: 6, marginTop: 8 },
-  modalInput:       { backgroundColor: '#2a2a2d', borderRadius: 12, padding: 13, fontSize: 15, color: '#fff', borderWidth: 1, borderColor: '#333', marginBottom: 4 },
-  modalHint:        { fontSize: 12, color: '#666', lineHeight: 18, marginTop: 8, marginBottom: 8 },
-  modalBtns:        { flexDirection: 'row', gap: 12, marginTop: 16 },
-  modalBtnCancel:   { flex: 1, borderWidth: 1, borderColor: '#333', borderRadius: 12, padding: 14, alignItems: 'center' },
-  modalBtnCancelText: { color: '#888', fontWeight: '600' },
-  modalBtnOk:       { flex: 1, backgroundColor: '#7C5CFC', borderRadius: 12, padding: 14, alignItems: 'center' },
-  modalBtnOkText:   { color: 'white', fontWeight: '700' },
+  root:             { flex:1, backgroundColor:colors.bg, paddingTop:56, paddingHorizontal:20 },
+  center:           { flex:1, backgroundColor:colors.bg, justifyContent:'center', alignItems:'center' },
+  titulo:           { fontSize:26, fontWeight:'800', color:colors.textPrimary, marginBottom:4 },
+  sub:              { fontSize:14, color:colors.textMuted, marginBottom:24 },
+  seccion:          { fontSize:12, fontWeight:'700', color:colors.textMuted, textTransform:'uppercase', letterSpacing:1, marginBottom:8, marginTop:12 },
+  seccionRow:       { flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginTop:12, marginBottom:8 },
+  addBtn:           { color:colors.primary, fontSize:14, fontWeight:'600' },
+  card:             { backgroundColor:colors.card, borderRadius:radius.lg, borderWidth:1, borderColor:colors.cardBorder, overflow:'hidden', marginBottom:4 },
+  row:              { flexDirection:'row', alignItems:'center', padding:14, gap:12 },
+  rowTitle:         { fontSize:15, color:colors.textPrimary, fontWeight:'500' },
+  rowSub:           { fontSize:12, color:colors.textMuted, marginTop:2 },
+  iconBox:          { width:34, height:34, borderRadius:radius.sm, justifyContent:'center', alignItems:'center' },
+  divider:          { height:1, backgroundColor:colors.border, marginHorizontal:14 },
+  emptyMsg:         { padding:14, color:colors.textMuted, fontSize:13 },
+  empAvatar:        { width:36, height:36, borderRadius:radius.full },
+  empAvatarFallback:{ width:36, height:36, borderRadius:radius.full, backgroundColor:colors.primaryGlow, justifyContent:'center', alignItems:'center', borderWidth:1, borderColor:colors.border },
+  empAvatarText:    { color:colors.primary, fontWeight:'700', fontSize:12 },
+  btnLogout:        { flexDirection:'row', alignItems:'center', justifyContent:'center', gap:8, borderWidth:1, borderColor:'rgba(248,113,113,0.3)', borderRadius:radius.md, padding:16, marginTop:24 },
+  btnLogoutText:    { color:colors.danger, fontWeight:'600', fontSize:15 },
+  overlay:          { flex:1, backgroundColor:'rgba(0,0,0,0.75)', justifyContent:'flex-end' },
+  sheet:            { backgroundColor:colors.card, borderTopLeftRadius:24, borderTopRightRadius:24, padding:24, paddingBottom:40, borderTopWidth:1, borderColor:colors.border },
+  handle:           { width:36, height:4, borderRadius:2, backgroundColor:colors.border, alignSelf:'center', marginBottom:20 },
+  sheetTitle:       { fontSize:18, fontWeight:'700', color:colors.textPrimary, marginBottom:20 },
+  sheetLabel:       { fontSize:12, color:colors.textMuted, fontWeight:'600', textTransform:'uppercase', letterSpacing:0.8, marginBottom:6, marginTop:12 },
+  sheetInput:       { backgroundColor:colors.input, borderRadius:radius.md, padding:13, fontSize:15, color:colors.textPrimary, borderWidth:1, borderColor:colors.border },
+  sheetHint:        { fontSize:12, color:colors.textMuted, lineHeight:18, marginTop:10 },
+  sheetBtns:        { flexDirection:'row', gap:12, marginTop:20 },
+  sheetCancel:      { flex:1, borderWidth:1, borderColor:colors.border, borderRadius:radius.md, padding:14, alignItems:'center' },
+  sheetCancelText:  { color:colors.textMuted, fontWeight:'600' },
+  sheetOk:          { flex:1, backgroundColor:colors.primary, borderRadius:radius.md, padding:14, alignItems:'center' },
+  sheetOkText:      { color:'white', fontWeight:'700' },
+  fotoPicker:       { alignSelf:'center', marginBottom:8 },
+  fotoImg:          { width:72, height:72, borderRadius:radius.full },
+  fotoPlaceholder:  { width:72, height:72, borderRadius:radius.full, backgroundColor:colors.input, borderWidth:1, borderColor:colors.border, justifyContent:'center', alignItems:'center', gap:4 },
+  fotoLabel:        { fontSize:10, color:colors.textMuted },
 })

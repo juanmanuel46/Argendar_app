@@ -15,19 +15,37 @@ export default function RegisterScreen({ navigation }) {
   const [loading,   setLoading]   = useState(false)
   const [showPass,  setShowPass]  = useState(false)
 
-  async function handleRegister() {
-    if (!nombre.trim())      { Alert.alert('Ingresá tu nombre'); return }
-    if (!email.trim())       { Alert.alert('Ingresá tu email'); return }
-    if (password.length < 6) { Alert.alert('La contraseña debe tener al menos 6 caracteres'); return }
-    if (password !== password2) { Alert.alert('Las contraseñas no coinciden'); return }
-    setLoading(true)
-    const { error } = await supabase.auth.signUp({
-      email: email.trim().toLowerCase(),
+async function handleRegister() {
+  if (!nombre.trim())         { Alert.alert('Ingresá tu nombre'); return }
+  if (!email.trim())          { Alert.alert('Ingresá tu email'); return }
+  if (password.length < 6)    { Alert.alert('La contraseña debe tener al menos 6 caracteres'); return }
+  if (password !== password2) { Alert.alert('Las contraseñas no coinciden'); return }
+
+  setLoading(true)
+  try {
+    const { data, error } = await supabase.auth.signUp({
+      email:    email.trim().toLowerCase(),
       password: password.trim(),
-      options: { data: { full_name: nombre.trim() } }
+      options:  { data: { full_name: nombre.trim() } }
     })
-    if (error) { Alert.alert('Error', error.message); setLoading(false) }
+
+    if (error) throw error
+
+    // Email ya registrado (Supabase devuelve identities vacío en este caso)
+    if (data?.user?.identities?.length === 0) {
+      Alert.alert('Email en uso', 'Ya existe una cuenta con ese email.')
+      return
+    }
+
+    // Todo bien → ir a pantalla de confirmación
+    navigation.navigate('ConfirmEmail', { email: email.trim().toLowerCase() })
+
+  } catch (e) {
+    Alert.alert('Error', e.message || 'Ocurrió un error al crear la cuenta')
+  } finally {
+    setLoading(false)
   }
+}
 
   return (
     <KeyboardAvoidingView style={s.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
