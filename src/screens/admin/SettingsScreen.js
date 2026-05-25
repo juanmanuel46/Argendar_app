@@ -1,13 +1,11 @@
 import { useEffect, useState, useCallback } from 'react'
-import {
-  View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  ActivityIndicator, Switch, Alert, TextInput, Modal, FlatList
-} from 'react-native'
+import {View, Text, StyleSheet, TouchableOpacity, ScrollView,ActivityIndicator, Switch, Alert, TextInput, Modal, FlatList} from 'react-native'
 import { supabase } from '../../lib/supabase'
+import { useNavigation } from '@react-navigation/native'
 
 const DIAS_SEMANA = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
 
-export default function SettingsScreen() {
+export default function SettingsScreen({ navigation }) {
   const [loading,    setLoading]    = useState(true)
   const [negocio,    setNegocio]    = useState(null)
   const [servicios,  setServicios]  = useState([])
@@ -106,7 +104,7 @@ export default function SettingsScreen() {
     }
     setModalEmpleado(false)
     if (!editEmpleado && eEmail.trim()) {
-      Alert.alert('✓ Empleado agregado', `Si ${eNombre} descarga Bookzy e inicia sesión con ${eEmail}, podrá ver sus turnos automáticamente.`)
+      Alert.alert('✓ Empleado agregado', `Si ${eNombre} descarga Argendar e inicia sesión con ${eEmail}, podrá ver sus turnos automáticamente.`)
     }
     fetchData()
   }
@@ -145,8 +143,13 @@ export default function SettingsScreen() {
               )}
             </View>
             {negocio?.subscription_status !== 'active' && (
-              <TouchableOpacity style={s.btnActivar} onPress={() => Alert.alert('Activar', 'Contactanos para activar tu suscripción por $5 USD/mes')}>
-                <Text style={s.btnActivarText}>Activar</Text>
+              <TouchableOpacity
+                style={s.btnActivar}
+                onPress={() => navigation.navigate('Settings', {screen: 'Subscription'})}
+              >
+                <Text style={s.btnActivarText}>
+                  Activar
+                </Text>
               </TouchableOpacity>
             )}
           </View>
@@ -158,7 +161,7 @@ export default function SettingsScreen() {
           <View style={s.configItem}>
             <Text style={s.configIcon}>🔗</Text>
             <View style={{ flex: 1 }}>
-              <Text style={s.configTitulo}>bookzy.com.ar/{negocio?.slug}</Text>
+              <Text style={s.configTitulo}>argendar.com.ar/{negocio?.slug}</Text>
               <Text style={s.configSub}>Compartí este link con tus clientes</Text>
             </View>
           </View>
@@ -292,7 +295,7 @@ export default function SettingsScreen() {
             <TextInput style={s.modalInput} value={eRol} onChangeText={setERol} placeholder="Barbero Senior" placeholderTextColor="#555" />
             <Text style={s.modalLabel}>Email (para que inicie sesión en la app)</Text>
             <TextInput style={s.modalInput} value={eEmail} onChangeText={setEEmail} placeholder="matias@email.com" placeholderTextColor="#555" keyboardType="email-address" autoCapitalize="none" />
-            <Text style={s.modalHint}>💡 Si ingresás el email, el empleado podrá descargar Bookzy e iniciar sesión para ver sus turnos automáticamente.</Text>
+            <Text style={s.modalHint}>💡 Si ingresás el email, el empleado podrá descargar Argendar e iniciar sesión para ver sus turnos automáticamente.</Text>
             <View style={s.modalBtns}>
               <TouchableOpacity style={s.modalBtnCancel} onPress={() => setModalEmpleado(false)}>
                 <Text style={s.modalBtnCancelText}>Cancelar</Text>

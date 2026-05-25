@@ -1,136 +1,429 @@
-import { useEffect, useState } from 'react'
-import { View, Text, ScrollView, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native'
+import { useState, useCallback, useRef } from 'react'
+import {
+  View,
+  Text,
+  ScrollView,
+  StyleSheet,
+  ActivityIndicator,
+  RefreshControl,
+  StatusBar,
+  Animated,
+  Pressable
+} from 'react-native'
+import { useFocusEffect } from '@react-navigation/native'
+import { Feather } from '@expo/vector-icons'
 import { supabase } from '../../lib/supabase'
+import { colors } from '../../lib/theme'
+
+/* -------------------- Stat Card -------------------- */
+function StatCard({ icon, label, value, color }) {
+  return (
+    <View style={s.statCard}>
+      <View style={[s.statIcon, { backgroundColor: `${color}15` }]}>
+        <Feather name={icon} size={16} color={color} />
+      </View>
+
+      <Text style={s.statValue}>{value}</Text>
+      <Text style={s.statLabel}>{label}</Text>
+    </View>
+  )
+}
+
+/* -------------------- Insight -------------------- */
+function InsightCard({ icon, value, label, color }) {
+  return (
+    <View style={s.insightCard}>
+      <Feather name={icon} size={18} color={color} />
+      <Text style={s.insightValue}>{value}</Text>
+      <Text style={s.insightLabel}>{label}</Text>
+    </View>
+  )
+}
 
 export default function DashboardScreen() {
   const [loading, setLoading] = useState(true)
-  const [negocio, setNegocio] = useState(null)
-  const [stats, setStats] = useState({
-    turnosHoy: 0,
-    pendientesHoy: 0,
-    completadosHoy: 0,
-    canceladosHoy: 0,
-    turnosSemana: 0,
-    ingresoEstimadoHoy: 0,
-  })
+  const [refreshing, setRefreshing] = useState(false)
+  const [data, setData] = useState(null)
+  const [periodo, setPeriodo] = useState('hoy')
 
-  useEffect(() => {
-    fetchData()
-  }, [])
+  const fade = useRef(new Animated.Value(1)).current
 
-  async function fetchData() {
-    const { data: { user } } = await supabase.auth.getUser()
-    const { data: appUser } = await supabase.from('app_users').select('business_id').eq('id', user.id).single()
-    if (!appUser) { setLoading(false); return }
+  useFocusEffect(
+    useCallback(() => {
+      fetchData()
+    }, [periodo])
+  )
 
-    const { data: biz } = await supabase.from('businesses').select('name').eq('id', appUser.business_id).single()
-    setNegocio(biz)
-
-    const hoy = new Date().toISOString().split('T')[0]
-    const semanaAtras = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-
-    const { data: turnosHoy } = await supabase
-      .from('appointments')
-      .select('status, services(price)')
-      .eq('business_id', appUser.business_id)
-      .eq('date', hoy)
-
-    const { data: turnosSemana } = await supabase
-      .from('appointments')
-      .select('id')
-      .eq('business_id', appUser.business_id)
-      .gte('date', semanaAtras)
-
-    const pendientes = (turnosHoy || []).filter(t => t.status === 'pending').length
-    const completados = (turnosHoy || []).filter(t => t.status === 'completed').length
-    const cancelados = (turnosHoy || []).filter(t => t.status === 'cancelled').length
-    const ingreso = (turnosHoy || [])
-      .filter(t => t.status === 'completed')
-      .reduce((acc, t) => acc + (t.services?.price || 0), 0)
-
-    setStats({
-      turnosHoy: (turnosHoy || []).length,
-      pendientesHoy: pendientes,
-      completadosHoy: completados,
-      canceladosHoy: cancelados,
-      turnosSemana: (turnosSemana || []).length,
-      ingresoEstimadoHoy: ingreso,
-    })
-    setLoading(false)
+  function animate() {
+    Animated.sequence([
+      Animated.timing(fade, {
+        toValue: 0.4,
+        duration: 120,
+        useNativeDriver: true
+      }),
+      Animated.timing(fade, {
+        toValue: 1,
+        duration: 180,
+        useNativeDriver: true
+      })
+    ]).start()
   }
 
-  if (loading) return (
-    <View style={s.center}>
-      <ActivityIndicator color="#7C5CFC" size="large" />
-    </View>
-  )
+  async function fetchData() {
+    animate()
+
+    const { data: { user } } = await supabase.auth.getUser()
+
+    const { data: appUser } = await supabase
+      .from('app_users')
+      .select('business_id, businesses(name, slug, subscription_status, trial_ends_at)')
+      .eq('id', user.id)
+      .single()
+
+    if (!appUser) {
+      setLoading(false)
+      return
+    }
+
+    const biz = appUser.businesses
+
+    const today = new Date()
+    let from = today.toISOString().split('T')[0]
+
+    if (periodo === 'semana') {
+      const d = new Date(today)
+      d.setDate(today.getDate() - 7)
+      from = d.toISOString().split('T')[0]
+    } else if (periodo === 'mes') {
+      const d = new Date(today)
+      d.setDate(1)
+      from = d.toISOString().split('T')[0]
+    }
+
+    const { data: turnos } = await supabase
+      .from('appointments')
+      .select('status, client_id, services(price, name)')
+      .eq('business_id', appUser.business_id)
+      .gte('date', from)
+      .lte('date', today.toISOString().split('T')[0])
+
+    const list = turnos || []
+
+    const completed = list.filter(t => t.status === 'completed')
+
+    const income = completed.reduce(
+      (acc, t) => acc + (t.services?.price || 0),
+      0
+    )
+
+    const uniqueClients = new Set(list.map(t => t.client_id)).size
+
+    const count = {}
+    list.forEach(t => {
+      const n = t.services?.name
+      if (n) count[n] = (count[n] || 0) + 1
+    })
+
+    const top = Object.entries(count).sort((a, b) => b[1] - a[1])[0]?.[0] || '-'
+
+    setData({
+      business: biz?.name,
+      slug: biz?.slug,
+      stats: {
+        total: list.length,
+        pending: list.filter(t => t.status === 'pending').length,
+        completed: completed.length,
+        cancelled: list.filter(t => t.status === 'cancelled').length,
+        income,
+        uniqueClients,
+        top
+      }
+    })
+
+    setLoading(false)
+    setRefreshing(false)
+  }
+
+  if (loading) {
+    return (
+      <View style={s.center}>
+        <ActivityIndicator color={colors.primary} size="large" />
+      </View>
+    )
+  }
+
+  const { business, slug, stats } = data
+
+  const date = new Date().toLocaleDateString('es-AR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long'
+  })
 
   return (
-    <ScrollView style={s.container} contentContainerStyle={{ paddingBottom: 40 }}>
-      <Text style={s.saludo}>Hola 👋</Text>
-      <Text style={s.negocio}>{negocio?.name}</Text>
-      <Text style={s.fecha}>{new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}</Text>
+    <View style={s.root}>
+      <StatusBar barStyle="light-content" />
 
-      {/* Métricas de hoy */}
-      <Text style={s.seccion}>Hoy</Text>
-      <View style={s.grid}>
-        <MetricCard titulo="Turnos" valor={stats.turnosHoy} icono="📅" />
-        <MetricCard titulo="Pendientes" valor={stats.pendientesHoy} icono="⏳" />
-        <MetricCard titulo="Completados" valor={stats.completadosHoy} icono="✅" />
-        <MetricCard titulo="Cancelados" valor={stats.canceladosHoy} icono="❌" />
-      </View>
+      <ScrollView
+        contentContainerStyle={s.scroll}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => {
+              setRefreshing(true)
+              fetchData()
+            }}
+            tintColor={colors.primary}
+          />
+        }
+      >
 
-      {/* Ingreso estimado */}
-      <View style={s.ingresoCard}>
-        <Text style={s.ingresoLabel}>💰 Ingreso estimado hoy</Text>
-        <Text style={s.ingresoValor}>${stats.ingresoEstimadoHoy.toLocaleString('es-AR')}</Text>
-        <Text style={s.ingresoSub}>Solo turnos completados</Text>
-      </View>
+        {/* HEADER */}
+        <View style={s.header}>
+          <Text style={s.kicker}>Panel de control</Text>
+          <Text style={s.title}>{business}</Text>
+          <Text style={s.subtitle}>{date}</Text>
+        </View>
 
-      {/* Semana */}
-      <Text style={s.seccion}>Últimos 7 días</Text>
-      <View style={s.semanaCard}>
-        <Text style={s.semanaLabel}>Total de turnos</Text>
-        <Text style={s.semanaValor}>{stats.turnosSemana}</Text>
-      </View>
+        {/* SEGMENT CONTROL */}
+        <View style={s.segment}>
+          {[
+            ['hoy', 'Hoy'],
+            ['semana', '7 días'],
+            ['mes', 'Mes']
+          ].map(([val, label]) => (
+            <Pressable
+              key={val}
+              onPress={() => setPeriodo(val)}
+              style={[s.segmentBtn, periodo === val && s.segmentActive]}
+            >
+              <Text style={[s.segmentText, periodo === val && s.segmentTextActive]}>
+                {label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
 
-      {/* Cerrar sesión */}
-      <TouchableOpacity style={s.logout} onPress={() => supabase.auth.signOut()}>
-        <Text style={s.logoutText}>Cerrar sesión</Text>
-      </TouchableOpacity>
-    </ScrollView>
+        {/* CONTENT */}
+        <Animated.View style={{ opacity: fade }}>
+
+          <Text style={s.section}>Resumen</Text>
+
+          <View style={s.grid}>
+            <StatCard icon="calendar" label="Total" value={stats.total} color={colors.primary} />
+            <StatCard icon="clock" label="Pendientes" value={stats.pending} color={colors.warning} />
+            <StatCard icon="check" label="Completados" value={stats.completed} color={colors.success} />
+            <StatCard icon="x" label="Cancelados" value={stats.cancelled} color={colors.danger} />
+          </View>
+
+          {/* HERO CARD */}
+          <View style={s.heroCard}>
+            <Text style={s.heroLabel}>Ingresos estimados</Text>
+            <Text style={s.heroValue}>
+              ${stats.income.toLocaleString('es-AR')}
+            </Text>
+            <Text style={s.heroHint}>Solo turnos completados</Text>
+          </View>
+
+          {/* INSIGHTS */}
+          <Text style={s.section}>Insights</Text>
+
+          <View style={s.insights}>
+            <InsightCard icon="users" value={stats.uniqueClients} label="Clientes" color={colors.primary} />
+            <InsightCard icon="star" value={stats.top} label="Más pedido" color={colors.warning} />
+          </View>
+
+          {/* LINK */}
+          <View style={s.link}>
+            <Feather name="link" size={14} color={colors.primary} />
+            <Text style={s.linkText}>argendar.com.ar/{slug}</Text>
+          </View>
+
+        </Animated.View>
+      </ScrollView>
+    </View>
   )
 }
 
-function MetricCard({ titulo, valor, icono }) {
-  return (
-    <View style={s.metricCard}>
-      <Text style={s.metricIcono}>{icono}</Text>
-      <Text style={s.metricValor}>{valor}</Text>
-      <Text style={s.metricTitulo}>{titulo}</Text>
-    </View>
-  )
-}
-
+/* -------------------- STYLE -------------------- */
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0A0A0F', padding: 20, paddingTop: 60 },
-  center: { flex: 1, backgroundColor: '#0A0A0F', justifyContent: 'center', alignItems: 'center' },
-  saludo: { fontSize: 16, color: '#7A7A9A', marginBottom: 4 },
-  negocio: { fontSize: 26, fontWeight: '800', color: '#F0F0F8', marginBottom: 4 },
-  fecha: { fontSize: 14, color: '#7A7A9A', marginBottom: 24, textTransform: 'capitalize' },
-  seccion: { fontSize: 13, fontWeight: '600', color: '#7A7A9A', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12, marginTop: 8 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
-  metricCard: { backgroundColor: '#13131A', borderWidth: 1, borderColor: 'rgba(124,92,252,0.2)', borderRadius: 16, padding: 16, width: '47%', alignItems: 'center' },
-  metricIcono: { fontSize: 24, marginBottom: 8 },
-  metricValor: { fontSize: 32, fontWeight: '800', color: '#7C5CFC', marginBottom: 4 },
-  metricTitulo: { fontSize: 12, color: '#7A7A9A' },
-  ingresoCard: { backgroundColor: '#13131A', borderWidth: 1, borderColor: 'rgba(124,92,252,0.2)', borderRadius: 16, padding: 20, marginBottom: 16 },
-  ingresoLabel: { fontSize: 14, color: '#7A7A9A', marginBottom: 8 },
-  ingresoValor: { fontSize: 36, fontWeight: '800', color: '#4dd9ac', marginBottom: 4 },
-  ingresoSub: { fontSize: 12, color: '#7A7A9A' },
-  semanaCard: { backgroundColor: '#13131A', borderWidth: 1, borderColor: 'rgba(124,92,252,0.2)', borderRadius: 16, padding: 20, marginBottom: 24, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  semanaLabel: { fontSize: 15, color: '#F0F0F8', fontWeight: '600' },
-  semanaValor: { fontSize: 32, fontWeight: '800', color: '#7C5CFC' },
-  logout: { borderWidth: 1, borderColor: 'rgba(255,79,79,0.3)', borderRadius: 12, padding: 14, alignItems: 'center' },
-  logoutText: { color: '#ff6b6b', fontWeight: '600', fontSize: 15 },
+  root: {
+    flex: 1,
+    backgroundColor: colors.bg
+  },
+
+  scroll: {
+    paddingTop: 60,
+    paddingHorizontal: 18,
+    paddingBottom: 40
+  },
+
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.bg
+  },
+
+  header: {
+    marginBottom: 18
+  },
+
+  kicker: {
+    fontSize: 12,
+    color: colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 1
+  },
+
+  title: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: colors.textPrimary
+  },
+
+  subtitle: {
+    fontSize: 13,
+    color: colors.textMuted,
+    marginTop: 4
+  },
+
+  segment: {
+    flexDirection: 'row',
+    backgroundColor: colors.card,
+    borderRadius: 14,
+    padding: 4,
+    marginBottom: 18
+  },
+
+  segmentBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: 12
+  },
+
+  segmentActive: {
+    backgroundColor: colors.primaryGlow
+  },
+
+  segmentText: {
+    fontSize: 12,
+    color: colors.textMuted,
+    fontWeight: '600'
+  },
+
+  segmentTextActive: {
+    color: colors.primary
+  },
+
+  section: {
+    fontSize: 12,
+    color: colors.textMuted,
+    textTransform: 'uppercase',
+    marginBottom: 10,
+    marginTop: 16
+  },
+
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10
+  },
+
+  statCard: {
+    width: '48%',
+    backgroundColor: colors.card,
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: colors.border
+  },
+
+  statIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10
+  },
+
+  statValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: colors.textPrimary
+  },
+
+  statLabel: {
+    fontSize: 12,
+    color: colors.textMuted
+  },
+
+  heroCard: {
+    marginTop: 14,
+    backgroundColor: colors.card,
+    borderRadius: 22,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: colors.border
+  },
+
+  heroLabel: {
+    fontSize: 12,
+    color: colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 1
+  },
+
+  heroValue: {
+    fontSize: 38,
+    fontWeight: '900',
+    color: colors.success,
+    marginTop: 6
+  },
+
+  heroHint: {
+    fontSize: 12,
+    color: colors.textMuted,
+    marginTop: 4
+  },
+
+  insights: {
+    flexDirection: 'row',
+    gap: 10
+  },
+
+  insightCard: {
+    flex: 1,
+    backgroundColor: colors.card,
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: colors.border
+  },
+
+  insightValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginTop: 6
+  },
+
+  insightLabel: {
+    fontSize: 11,
+    color: colors.textMuted
+  },
+
+  link: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 16,
+    alignItems: 'center'
+  },
+
+  linkText: {
+    color: colors.primary,
+    fontWeight: '600'
+  }
 })

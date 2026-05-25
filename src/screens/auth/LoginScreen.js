@@ -1,92 +1,263 @@
 import { useState } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity,
-  StyleSheet, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView
+  StyleSheet, Alert, ActivityIndicator,
+  KeyboardAvoidingView, Platform, ScrollView, StatusBar
 } from 'react-native'
+import { Feather } from '@expo/vector-icons'
 import { supabase } from '../../lib/supabase'
+import { colors, radius, spacing } from '../../lib/theme'
 
 export default function LoginScreen({ navigation }) {
-  const [email,    setEmail]    = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [loading,  setLoading]  = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [showPass, setShowPass] = useState(false)
 
   async function handleLogin() {
-    if (!email.trim())    { Alert.alert('Ingresá tu email'); return }
-    if (!password.trim()) { Alert.alert('Ingresá tu contraseña'); return }
+    if (!email.trim() || !password.trim()) {
+      Alert.alert('Campos requeridos', 'Completá tu email y contraseña')
+      return
+    }
+
     setLoading(true)
+
     const { error } = await supabase.auth.signInWithPassword({
       email: email.trim().toLowerCase(),
       password: password.trim(),
     })
+
     if (error) {
-      Alert.alert('Error al ingresar', 'Email o contraseña incorrectos')
+      Alert.alert('Error', 'Email o contraseña incorrectos')
     }
+
     setLoading(false)
   }
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={s.container} keyboardShouldPersistTaps="handled">
-        <View style={s.logoWrap}>
-          <Text style={s.logo}>Bookzy</Text>
-          <Text style={s.logoSub}>Gestión de turnos inteligente</Text>
+    <KeyboardAvoidingView
+      style={s.root}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <StatusBar barStyle="light-content" />
+
+      <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
+
+        {/* HEADER / BRAND */}
+        <View style={s.hero}>
+          <View style={s.logoBubble}>
+            <Feather name="calendar" size={26} color={colors.primary} />
+          </View>
+
+          <Text style={s.title}>Argendar</Text>
+          <Text style={s.subtitle}>Gestioná tus turnos de forma profesional</Text>
         </View>
 
+        {/* CARD */}
         <View style={s.card}>
-          <Text style={s.titulo}>Bienvenido 👋</Text>
-          <Text style={s.sub}>Ingresá a tu cuenta</Text>
 
-          <Text style={s.label}>Email</Text>
-          <TextInput
-            style={s.input}
-            placeholder="tu@email.com"
-            placeholderTextColor="#555"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
+          <Text style={s.cardTitle}>Bienvenido de vuelta</Text>
+          <Text style={s.cardSubtitle}>Iniciá sesión para continuar</Text>
 
-          <Text style={s.label}>Contraseña</Text>
-          <TextInput
-            style={s.input}
-            placeholder="Tu contraseña"
-            placeholderTextColor="#555"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
+          {/* EMAIL */}
+          <View style={s.field}>
+            <Text style={s.label}>Email</Text>
+            <View style={s.input}>
+              <Feather name="mail" size={16} color={colors.textMuted} />
+              <TextInput
+                placeholder="tu@email.com"
+                placeholderTextColor={colors.textMuted}
+                style={s.textInput}
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+              />
+            </View>
+          </View>
 
-          <TouchableOpacity style={s.btn} onPress={handleLogin} disabled={loading}>
-            {loading
-              ? <ActivityIndicator color="white" />
-              : <Text style={s.btnText}>Ingresar →</Text>
-            }
+          {/* PASSWORD */}
+          <View style={s.field}>
+            <Text style={s.label}>Contraseña</Text>
+            <View style={s.input}>
+              <Feather name="lock" size={16} color={colors.textMuted} />
+
+              <TextInput
+                placeholder="••••••••"
+                placeholderTextColor={colors.textMuted}
+                style={[s.textInput, { flex: 1 }]}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPass}
+              />
+
+              <TouchableOpacity onPress={() => setShowPass(!showPass)}>
+                <Feather
+                  name={showPass ? 'eye-off' : 'eye'}
+                  size={16}
+                  color={colors.textMuted}
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* BUTTON */}
+          <TouchableOpacity
+            style={s.button}
+            onPress={handleLogin}
+            disabled={loading}
+            activeOpacity={0.85}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <Text style={s.buttonText}>Ingresar</Text>
+                <Feather name="arrow-right" size={18} color="#fff" />
+              </>
+            )}
           </TouchableOpacity>
+
         </View>
 
-        <TouchableOpacity style={s.registerLink} onPress={() => navigation.navigate('Register')}>
-          <Text style={s.registerLinkText}>¿No tenés cuenta? <Text style={s.registerLinkAccent}>Registrá tu negocio gratis</Text></Text>
+        {/* FOOTER */}
+        <TouchableOpacity
+          style={s.footer}
+          onPress={() => navigation.navigate('Register')}
+        >
+          <Text style={s.footerText}>
+            ¿No tenés cuenta?
+          </Text>
+          <Text style={s.footerLink}>
+            Crear negocio gratis
+          </Text>
         </TouchableOpacity>
+
       </ScrollView>
     </KeyboardAvoidingView>
   )
 }
-
 const s = StyleSheet.create({
-  container:       { flexGrow: 1, backgroundColor: '#111', justifyContent: 'center', padding: 24 },
-  logoWrap:        { alignItems: 'center', marginBottom: 32 },
-  logo:            { fontSize: 36, fontWeight: '800', color: '#c87aff' },
-  logoSub:         { fontSize: 13, color: '#555', marginTop: 4 },
-  card:            { backgroundColor: '#1c1c1e', borderRadius: 20, padding: 24, borderWidth: 1.5, borderColor: '#2a2a2d', marginBottom: 20 },
-  titulo:          { fontSize: 22, fontWeight: '700', color: '#fff', marginBottom: 4 },
-  sub:             { fontSize: 14, color: '#666', marginBottom: 24 },
-  label:           { fontSize: 13, color: '#888', fontWeight: '600', marginBottom: 6, marginTop: 4 },
-  input:           { backgroundColor: '#2a2a2d', borderRadius: 12, padding: 14, fontSize: 15, color: '#fff', marginBottom: 14, borderWidth: 1, borderColor: '#333' },
-  btn:             { backgroundColor: '#7C5CFC', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 8 },
-  btnText:         { color: 'white', fontSize: 16, fontWeight: '700' },
-  registerLink:    { alignItems: 'center', padding: 12 },
-  registerLinkText:{ color: '#666', fontSize: 14 },
-  registerLinkAccent: { color: '#c87aff', fontWeight: '600' },
+  root: {
+    flex: 1,
+    backgroundColor: colors.bg
+  },
+
+  scroll: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    padding: 20
+  },
+
+  hero: {
+    alignItems: 'center',
+    marginBottom: 28
+  },
+
+  logoBubble: {
+    width: 70,
+    height: 70,
+    borderRadius: 20,
+    backgroundColor: colors.primaryGlow,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: colors.border
+  },
+
+  title: {
+    fontSize: 34,
+    fontWeight: '800',
+    color: colors.textPrimary,
+    letterSpacing: -1
+  },
+
+  subtitle: {
+    fontSize: 14,
+    color: colors.textMuted,
+    marginTop: 6
+  },
+
+  card: {
+    backgroundColor: colors.card,
+    borderRadius: 24,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: colors.cardBorder
+  },
+
+  cardTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.textPrimary
+  },
+
+  cardSubtitle: {
+    fontSize: 13,
+    color: colors.textMuted,
+    marginBottom: 18
+  },
+
+  field: {
+    marginBottom: 14
+  },
+
+  label: {
+    fontSize: 11,
+    color: colors.textMuted,
+    textTransform: 'uppercase',
+    marginBottom: 8,
+    letterSpacing: 1
+  },
+
+  input: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.input,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    height: 52,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 10
+  },
+
+  textInput: {
+    flex: 1,
+    color: colors.textPrimary,
+    fontSize: 15
+  },
+
+  button: {
+    flexDirection: 'row',
+    backgroundColor: colors.primary,
+    padding: 16,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 8,
+    gap: 10
+  },
+
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700'
+  },
+
+  footer: {
+    marginTop: 20,
+    alignItems: 'center'
+  },
+
+  footerText: {
+    color: colors.textMuted,
+    fontSize: 14
+  },
+
+  footerLink: {
+    color: colors.primary,
+    fontWeight: '600',
+    marginTop: 4
+  }
 })

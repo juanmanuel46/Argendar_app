@@ -3,9 +3,9 @@ import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator }
 import { supabase } from '../../lib/supabase'
 
 const FILTROS = ['Todos', 'Pendientes', 'Completados', 'Cancelados']
-const STATUS_MAP = { 'Todos': null, 'Pendientes': 'pending', 'Completados': 'completed', 'Cancelados': 'cancelled' }
-const ESTADOS = { pending: 'Pendiente', completed: '✓ Listo', cancelled: 'Cancelado' }
-const BADGE = { pending: { bg: 'rgba(124,92,252,0.15)', color: '#a78bfa' }, completed: { bg: 'rgba(77,217,172,0.15)', color: '#4dd9ac' }, cancelled: { bg: 'rgba(255,79,79,0.12)', color: '#ff6b6b' } }
+const STATUS_MAP = { 'Todos': null, 'Pendientes': 'pending', 'Completados': 'done', 'Cancelados': 'cancelled' }
+const ESTADOS = { pending: 'Pendiente', done: '✓ Listo', cancelled: 'Cancelado' }
+const BADGE = { pending: { bg: 'rgba(124,92,252,0.15)', color: '#a78bfa' }, done: { bg: 'rgba(77,217,172,0.15)', color: '#4dd9ac' }, cancelled: { bg: 'rgba(255,79,79,0.12)', color: '#ff6b6b' } }
 
 export default function AppointmentsScreen() {
   const [loading, setLoading] = useState(true)
@@ -46,8 +46,15 @@ export default function AppointmentsScreen() {
   }
 
   async function cambiarEstado(id, nuevoEstado) {
-    await supabase.from('appointments').update({ status: nuevoEstado }).eq('id', id)
-    fetchTurnos()
+    const { data, error } = await supabase
+      .from('appointments')
+      .update({ status: nuevoEstado })
+      .eq('id', id)
+      .select()
+
+    console.log('nuevoEstado:', nuevoEstado)
+    console.log('data:', data)
+    console.log('error:', error)
   }
 
   return (
@@ -92,7 +99,7 @@ export default function AppointmentsScreen() {
 
             {item.status === 'pending' && (
               <View style={s.acciones}>
-                <TouchableOpacity style={s.btnListo} onPress={() => cambiarEstado(item.id, 'completed')}>
+                <TouchableOpacity style={s.btnListo} onPress={() => cambiarEstado(item.id, 'done')}>
                   <Text style={s.btnListoText}>✓ Listo</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={s.btnCancelar} onPress={() => cambiarEstado(item.id, 'cancelled')}>
