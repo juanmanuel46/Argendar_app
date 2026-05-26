@@ -28,7 +28,7 @@ export default function SubscriptionScreen() {
       'Para activar tu suscripción por $5 USD/mes, contactanos por WhatsApp y te enviamos el link de pago.',
       [
         { text: 'Cancelar', style: 'cancel' },
-        { text: 'Contactar', onPress: () => Linking.openURL('https://wa.me/5491100000000?text=Quiero%20activar%20mi%20suscripci%C3%B3n%20de%20Bookzy%20-%20Negocio:%20' + negocio?.name) },
+        { text: 'Contactar', onPress: () => Linking.openURL('https://wa.me/5491100000000?text=Quiero%20activar%20mi%20suscripci%C3%B3n%20de%20Argendar%20-%20Negocio:%20' + negocio?.name) },
       ]
     )
   }
@@ -75,9 +75,7 @@ export default function SubscriptionScreen() {
             '✓ Notificaciones push',
             '✓ Gestión de empleados',
             '✓ Soporte incluido',
-          ].map(f => (
-            <Text key={f} style={s.planFeature}>{f}</Text>
-          ))}
+          ].map(f => (<Text key={f} style={s.planFeature}>{f}</Text>))}
         </View>
       </View>
 
