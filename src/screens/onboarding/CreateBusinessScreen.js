@@ -105,7 +105,7 @@ export default function CreateBusinessScreen({ navigation }) {
         
         {/* Header */}
         <View style={s.header}>
-          <Text style={s.logo}>Bookzy</Text>
+          <Text style={s.logo}>Argendar</Text>
           <View style={s.paso}>
             <Text style={s.pasoText}>Paso 1 de 2</Text>
           </View>
@@ -129,7 +129,7 @@ export default function CreateBusinessScreen({ navigation }) {
         {slug ? (
           <View style={s.slugPreview}>
             <Text style={s.slugPreviewLabel}>Tu URL de reservas:</Text>
-            <Text style={s.slugPreviewUrl}>bookzy.com.ar/<Text style={s.slugAccent}>{slug}</Text></Text>
+            <Text style={s.slugPreviewUrl}>argendar.com.ar/<Text style={s.slugAccent}>{slug}</Text></Text>
             <TextInput
               style={s.slugInput}
               value={slug}

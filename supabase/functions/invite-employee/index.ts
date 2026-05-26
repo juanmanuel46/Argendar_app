@@ -19,7 +19,7 @@ serve(async (req) => {
 
     const { error } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
       data: { invited_as: 'employee' },
-      redirectTo: 'bookzy-app://reset-password',
+      redirectTo: 'argendar://reset-password',
     })
 
     if (error) throw error

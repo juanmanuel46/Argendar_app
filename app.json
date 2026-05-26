@@ -1,34 +1,35 @@
 {
   "expo": {
-    "name": "bookzy-app",
-    "slug": "bookzy-app",
-    "scheme": "bookzy-app",
+    "name": "Argendar",
+    "slug": "argendar",
+    "scheme": "argendar",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "newArchEnabled": false,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#0A0A0F"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.argendar.app"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#0A0A0F"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.bookzy.app",
+      "package": "com.argendar.app",
       "googleServicesFile": "./google-services.json",
       "intentFilters": [
         {
           "action": "VIEW",
           "autoVerify": true,
-          "data": [{ "scheme": "bookzy-app" }],
+          "data": [{ "scheme": "argendar" }],
           "category": ["BROWSABLE", "DEFAULT"]
         }
       ]

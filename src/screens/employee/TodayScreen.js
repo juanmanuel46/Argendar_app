@@ -123,7 +123,7 @@ export default function TodayScreen() {
       {/* Header */}
       <View style={s.header}>
         <View>
-          <Text style={s.headerLabel}>Bookzy</Text>
+          <Text style={s.headerLabel}>Argendar</Text>
           <Text style={s.headerBusiness}>{empInfo.negocio}</Text>
         </View>
         {empInfo.name ? (

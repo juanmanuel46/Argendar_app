@@ -34,7 +34,7 @@ export default function ConfirmEmailScreen({ route, navigation }) {
         </View>
         <View style={s.paso}>
           <View style={s.pasoBubble}><Text style={s.pasoNum}>2</Text></View>
-          <Text style={s.pasoText}>Buscá el email de Bookzy</Text>
+          <Text style={s.pasoText}>Buscá el email de Argendar</Text>
         </View>
         <View style={s.paso}>
           <View style={s.pasoBubble}><Text style={s.pasoNum}>3</Text></View>

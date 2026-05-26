@@ -1,21 +1,21 @@
 {
   "project_info": {
-    "project_number": "963547945179",
-    "project_id": "bookzy-8f32d",
-    "storage_bucket": "bookzy-8f32d.firebasestorage.app"
+    "project_number": "204408543176",
+    "project_id": "argendar",
+    "storage_bucket": "argendar.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:963547945179:android:f8cc37fd095756197f14fe",
+        "mobilesdk_app_id": "1:204408543176:android:8054499b92b2977ba392fd",
         "android_client_info": {
-          "package_name": "com.bookzy.app"
+          "package_name": "com.argendar.app"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyAUVNmZW83asWOIBOC4aiW_YNuBiR3Mm74"
+          "current_key": "AIzaSyCCADRew681YtvIgKXDzV2-Eup-wrjNWxk"
         }
       ],
       "services": {
