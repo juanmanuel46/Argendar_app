@@ -34,9 +34,11 @@ function TurnoCard({ item, onComplete, onCancel }) {
           <Text style={s.clientName}>{item.clients?.name}</Text>
           <Text style={s.clientPhone}>{item.clients?.codigo_pais} {item.clients?.phone}</Text>
         </View>
-        <View style={s.priceTag}>
-          <Text style={s.price}>${item.services?.price}</Text>
-        </View>
+        {item.services?.price > 0 && (
+          <View style={s.priceTag}>
+            <Text style={s.price}>${item.services.price.toLocaleString('es-AR')}</Text>
+          </View>
+        )}
       </View>
 
       <View style={s.serviceRow}>
