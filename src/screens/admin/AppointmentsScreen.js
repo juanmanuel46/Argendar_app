@@ -11,13 +11,14 @@ import { colors, radius, spacing } from '../../lib/theme'
 const FILTROS = [
   { label: 'Todos',       value: null },
   { label: 'Pendientes',  value: 'pending' },
-  { label: 'Completados', value: 'completed' },
+  { label: 'Completados', value: 'done' },
   { label: 'Cancelados',  value: 'cancelled' },
 ]
 
 const STATUS = {
   pending:   { label: 'Pendiente',  color: colors.warning, bg: colors.warningBg,  icon: 'clock' },
-  completed: { label: 'Completado', color: colors.success, bg: colors.successBg,  icon: 'check-circle' },
+  in_progress: { label: 'En curso', color: colors.primary, bg: colors.primaryGlow, icon: 'activity' },
+  done:      { label: 'Completado', color: colors.success, bg: colors.successBg,  icon: 'check-circle' },
   cancelled: { label: 'Cancelado',  color: colors.danger,  bg: colors.dangerBg,   icon: 'x-circle' },
 }
 
@@ -91,10 +92,10 @@ export default function AppointmentsScreen() {
   async function marcarListo(id) {
     const { error } = await supabase
       .from('appointments')
-      .update({ status: 'completed' })   // ← SIEMPRE 'completed', nunca 'done'
+      .update({ status: 'done' }) 
       .eq('id', id)
     if (error) { Alert.alert('Error', error.message); return }
-    setTurnos(prev => prev.map(t => t.id === id ? { ...t, status: 'completed' } : t))
+    setTurnos(prev => prev.map(t => t.id === id ? { ...t, status: 'done' } : t))
   }
 
   async function cancelar(id, nombre) {
@@ -112,7 +113,7 @@ export default function AppointmentsScreen() {
   }
 
   const pendientes  = turnos.filter(t => t.status === 'pending').length
-  const completados = turnos.filter(t => t.status === 'completed').length
+  const completados = turnos.filter(t => t.status === 'done').length
 
   return (
     <View style={s.root}>
@@ -210,7 +211,7 @@ export default function AppointmentsScreen() {
                 <View style={[
                   s.card,
                   item.status === 'cancelled' && s.cardCancelled,
-                  item.status === 'completed' && s.cardDone,
+                  item.status === 'done' && s.cardDone,
                 ]}>
                   {/* Hora + estado */}
                   <View style={s.cardTop}>

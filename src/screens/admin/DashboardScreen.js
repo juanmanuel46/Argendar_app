@@ -100,16 +100,31 @@ export default function DashboardScreen() {
       from = d.toISOString().split('T')[0]
     }
 
+    // 1. Traer los turnos
     const { data: turnos } = await supabase
       .from('appointments')
-      .select('status, client_id, services(price, name)')
+      .select('status, client_id, service_id')
       .eq('business_id', appUser.business_id)
       .gte('date', from)
       .lte('date', today.toISOString().split('T')[0])
 
-    const list = turnos || []
+    // 2. Traer los servicios del negocio
+    const { data: servicios } = await supabase
+      .from('services')
+      .select('id, name, price')
+      .eq('business_id', appUser.business_id)
 
-    const completed = list.filter(t => t.status === 'completed')
+    // 3. Hacer el join manual
+    const serviciosMap = {}
+    ;(servicios || []).forEach(s => { serviciosMap[s.id] = s })
+    console.log('serviciosMap keys:', Object.keys(serviciosMap))
+
+    const list = (turnos || []).map(t => ({
+      ...t,
+      services: t.service_id ? serviciosMap[t.service_id] : null
+    }))
+
+    const completed = list.filter(t => t.status === 'done')
 
     const income = completed.reduce(
       (acc, t) => acc + (t.services?.price || 0),

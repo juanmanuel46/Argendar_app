@@ -7,14 +7,14 @@ import { colors, radius, spacing } from '../../lib/theme'
 
 const STATUS_CONFIG = {
   pending:   { label: 'Pendiente',   color: colors.warning, bg: colors.warningBg,  icon: 'clock' },
-  completed: { label: 'Completado',  color: colors.success, bg: colors.successBg,  icon: 'check-circle' },
+  done: { label: 'Completado',  color: colors.success, bg: colors.successBg,  icon: 'check-circle' },
   cancelled: { label: 'Cancelado',   color: colors.danger,  bg: colors.dangerBg,   icon: 'x-circle' },
 }
 
 function TurnoCard({ item, onComplete, onCancel }) {
   const cfg = STATUS_CONFIG[item.status] || STATUS_CONFIG.pending
   return (
-    <View style={[s.card, item.status === 'cancelled' && s.cardCancelled, item.status === 'completed' && s.cardDone]}>
+    <View style={[s.card, item.status === 'cancelled' && s.cardCancelled, item.status === 'done' && s.cardDone]}>
       <View style={s.cardHeader}>
         <View style={s.timeWrap}>
           <Feather name="clock" size={12} color={colors.textMuted} />
@@ -98,8 +98,8 @@ export default function TodayScreen() {
   }
 
   async function handleComplete(id) {
-    await supabase.from('appointments').update({ status: 'completed' }).eq('id', id)
-    setTurnos(prev => prev.map(t => t.id === id ? { ...t, status: 'completed' } : t))
+    await supabase.from('appointments').update({ status: 'done' }).eq('id', id)
+    setTurnos(prev => prev.map(t => t.id === id ? { ...t, status: 'done' } : t))
   }
 
   async function handleCancel(id, nombre) {
@@ -113,7 +113,7 @@ export default function TodayScreen() {
   }
 
   const pendientes  = turnos.filter(t => t.status === 'pending').length
-  const completados = turnos.filter(t => t.status === 'completed').length
+  const completados = turnos.filter(t => t.status === 'done').length
   const fechaHoy = new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })
 
   if (loading) return <View style={s.center}><ActivityIndicator color={colors.primary} size="large" /></View>
