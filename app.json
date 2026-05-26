@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Argendar",
-    "slug": "argendar",
+    "slug": "bookzy-app",
     "scheme": "argendar",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -29,8 +29,15 @@
         {
           "action": "VIEW",
           "autoVerify": true,
-          "data": [{ "scheme": "argendar" }],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "data": [
+            {
+              "scheme": "argendar"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
@@ -45,6 +52,7 @@
       "eas": {
         "projectId": "93636524-c681-479e-b195-8b7bc28a9a90"
       }
-    }
+    },
+    "owner": "juanmanuelvr46"
   }
 }

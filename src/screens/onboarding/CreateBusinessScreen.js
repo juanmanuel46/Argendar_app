@@ -42,61 +42,54 @@ export default function CreateBusinessScreen({ navigation }) {
     setSlug(slugify(text))
   }
 
-  async function handleCrear() {
+async function handleCrear() {
     if (!nombre.trim())    { Alert.alert('Ingresá el nombre de tu negocio'); return }
     if (!categoria)        { Alert.alert('Elegí una categoría'); return }
     if (!slug.trim())      { Alert.alert('El slug no puede estar vacío'); return }
 
     setLoading(true)
 
-    // Verificar que el slug no exista
-    const { data: existing } = await supabase
-      .from('businesses')
-      .select('id')
-      .eq('slug', slug.trim())
-      .single()
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
 
-    if (existing) {
-      Alert.alert('URL no disponible', 'Ya existe un negocio con ese nombre de URL. Modificá el nombre o el slug.')
-      setLoading(false)
-      return
-    }
-
-    const { data: { user } } = await supabase.auth.getUser()
-
-    // Crear el negocio
-    const { data: biz, error } = await supabase
-      .from('businesses')
-      .insert({
+      const payload = {
         name: nombre.trim(),
-        category: categoria.nombre,
+        category: categoria?.nombre,
         slug: slug.trim(),
-        description: descripcion.trim(),
+        description: descripcion.trim() || null,
         active: true,
         allow_employee_selection: false,
-        owner_email: user.email,
+        owner_email: user?.email,
+        owner_id: user?.id,
         trial_ends_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
         subscription_status: 'trial',
-      })
-      .select()
-      .single()
+      };
 
-    if (error) {
-      Alert.alert('Error', error.message)
-      setLoading(false)
-      return
+      const { data: biz, error: bizError } = await supabase
+        .from('businesses')
+        .insert(payload)
+        .select()
+        .single();
+
+      console.log('═══ RESPUESTA SUPABASE ═══')
+      console.log('error:', JSON.stringify(bizError, null, 2))
+      console.log('data:', JSON.stringify(biz, null, 2))
+      console.log('══════════════════════════')
+
+      if (bizError) {
+        Alert.alert('Error', bizError.message);
+        setLoading(false);
+        return;
+      }
+
+      setLoading(false);
+      navigation.navigate('AddServices', { businessId: biz.id, businessName: biz.name });
+
+    } catch (err) {
+      console.log("Error en el catch global:", err);
+      setLoading(false);
     }
-
-    // Crear app_user como admin
-    await supabase.from('app_users').insert({
-      id: user.id,
-      business_id: biz.id,
-      employee_id: null,
-      role: 'admin',
-    })
-
-    setLoading(false)
-    navigation.navigate('AddServices', { businessId: biz.id, businessName: biz.name })
   }
 
   return (
