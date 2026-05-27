@@ -7,6 +7,7 @@ import { useFocusEffect } from '@react-navigation/native'
 import { Feather } from '@expo/vector-icons'
 import { supabase } from '../../lib/supabase'
 import { colors, radius, spacing } from '../../lib/theme'
+import CancelAppointmentModal from '../../components/CancelAppointmentModal'
 
 const FILTROS = [
   { label: 'Todos',       value: null },
@@ -48,6 +49,8 @@ export default function AppointmentsScreen() {
   const [filtro,     setFiltro]     = useState(null)
   const [fecha,      setFecha]      = useState(new Date())
   const businessIdRef = useRef(null)
+  const [cancelModalVisible, setCancelModalVisible]   = useState(false)
+  const [appointmentToCancel, setAppointmentToCancel] = useState(null)
 
   useFocusEffect(useCallback(() => {
     fetchAll()
@@ -98,18 +101,36 @@ export default function AppointmentsScreen() {
     setTurnos(prev => prev.map(t => t.id === id ? { ...t, status: 'done' } : t))
   }
 
-  async function cancelar(id, nombre) {
-    Alert.alert('Cancelar turno', `¿Cancelar el turno de ${nombre}?`, [
-      { text: 'No', style: 'cancel' },
-      { text: 'Sí, cancelar', style: 'destructive', onPress: async () => {
-        const { error } = await supabase
-          .from('appointments')
-          .update({ status: 'cancelled' })
-          .eq('id', id)
-        if (error) { Alert.alert('Error', error.message); return }
-        setTurnos(prev => prev.map(t => t.id === id ? { ...t, status: 'cancelled' } : t))
-      }},
-    ])
+  function abrirModalCancelar(turno) {
+    setAppointmentToCancel(turno)
+    setCancelModalVisible(true)
+  }
+
+  async function confirmarCancelacion(motivo) {
+    if (!appointmentToCancel) return
+
+    const { error } = await supabase
+      .from('appointments')
+      .update({ 
+        status: 'cancelled',
+        cancellation_reason: motivo,
+        cancelled_at: new Date().toISOString(),
+        cancelled_by: 'admin'
+      })
+      .eq('id', appointmentToCancel.id)
+
+    if (error) {
+      Alert.alert('Error', error.message)
+      return
+    }
+
+    setTurnos(prev => prev.map(t => 
+      t.id === appointmentToCancel.id 
+        ? { ...t, status: 'cancelled', cancellation_reason: motivo } 
+        : t
+    ))
+    setCancelModalVisible(false)
+    setAppointmentToCancel(null)
   }
 
   const pendientes  = turnos.filter(t => t.status === 'pending').length
@@ -258,7 +279,13 @@ export default function AppointmentsScreen() {
                       </View>
                     )}
                   </View>
-
+                    {/* Motivo de cancelación (si fue cancelado) */}
+                    {item.status === 'cancelled' && item.cancellation_reason && (
+                      <View style={s.cancelReason}>
+                        <Feather name="info" size={12} color={colors.danger} />
+                        <Text style={s.cancelReasonText}>{item.cancellation_reason}</Text>
+                      </View>
+                    )}
                   {/* Acciones */}
                   {item.status === 'pending' && (
                     <View style={s.actions}>
@@ -272,7 +299,7 @@ export default function AppointmentsScreen() {
                       </TouchableOpacity>
                       <TouchableOpacity
                         style={s.btnCancel}
-                        onPress={() => cancelar(item.id, item.clients?.name)}
+                        onPress={() => abrirModalCancelar(item)}
                         activeOpacity={0.8}
                       >
                         <Feather name="x" size={15} color={colors.danger} />
@@ -284,6 +311,15 @@ export default function AppointmentsScreen() {
             }}
           />
       }
+
+      <CancelAppointmentModal
+        visible={cancelModalVisible}
+        onClose={() => {
+          setCancelModalVisible(false)
+          setAppointmentToCancel(null)
+        }}
+        onConfirm={confirmarCancelacion}
+      />
     </View>
   )
 }
@@ -338,4 +374,6 @@ const s = StyleSheet.create({
   btnComplete:    { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: colors.primary, borderRadius: radius.md, padding: 11 },
   btnCompleteText:{ color: 'white', fontWeight: '700', fontSize: 14 },
   btnCancel:      { width: 42, height: 42, borderRadius: radius.md, backgroundColor: colors.dangerBg, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(248,113,113,0.2)' },
+  cancelReason:     { flexDirection: 'row', alignItems: 'flex-start', gap: 6, padding: 10, backgroundColor: colors.dangerBg, borderRadius: radius.md, marginBottom: 10, borderWidth: 1, borderColor: 'rgba(248,113,113,0.2)' },
+  cancelReasonText: { flex: 1, fontSize: 12, color: colors.danger, lineHeight: 17 },
 })
