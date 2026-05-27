@@ -8,13 +8,15 @@ import {
   RefreshControl,
   StatusBar,
   Animated,
-  Pressable
+  Pressable,
+  Alert,
+  TouchableOpacity,
 } from 'react-native'
 import { useFocusEffect } from '@react-navigation/native'
 import { Feather } from '@expo/vector-icons'
 import { supabase } from '../../lib/supabase'
 import { colors } from '../../lib/theme'
-
+import * as Clipboard from 'expo-clipboard'
 /* -------------------- Stat Card -------------------- */
 function StatCard({ icon, label, value, color }) {
   return (
@@ -249,10 +251,27 @@ export default function DashboardScreen() {
           </View>
 
           {/* LINK */}
-          <View style={s.link}>
-            <Feather name="link" size={14} color={colors.primary} />
-            <Text style={s.linkText}>argendar.com.ar/{slug}</Text>
-          </View>
+{/* LINK */}
+          <Text style={s.section}>Link de reservas</Text>
+
+          <TouchableOpacity
+            style={s.linkCard}
+            onPress={async () => {
+              const url = `argendar.com.ar/${slug}`
+              await Clipboard.setStringAsync(url)
+              Alert.alert('✓ Copiado', `${url}\n\nYa podés pegarlo donde quieras`)
+            }}
+            activeOpacity={0.7}
+          >
+            <View style={s.linkIcon}>
+              <Feather name="link" size={16} color={colors.primary} />
+            </View>
+            <View style={s.linkInfo}>
+              <Text style={s.linkLabel}>Tu URL</Text>
+              <Text style={s.linkUrl}>argendar.com.ar/{slug}</Text>
+            </View>
+            <Feather name="copy" size={18} color={colors.textMuted} />
+          </TouchableOpacity>
 
         </Animated.View>
       </ScrollView>
@@ -430,15 +449,42 @@ const s = StyleSheet.create({
     color: colors.textMuted
   },
 
-  link: {
+  linkCard: {
+    marginTop: 10,
+    backgroundColor: colors.card,
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 16,
-    alignItems: 'center'
+    alignItems: 'center',
+    gap: 12,
   },
 
-  linkText: {
+  linkIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: colors.primaryGlow,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  linkInfo: {
+    flex: 1,
+  },
+
+  linkLabel: {
+    fontSize: 11,
+    color: colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+
+  linkUrl: {
+    fontSize: 14,
     color: colors.primary,
-    fontWeight: '600'
-  }
+    fontWeight: '600',
+  },  
 })
