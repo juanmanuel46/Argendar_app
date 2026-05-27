@@ -15,7 +15,8 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.argendar.app"
+      "bundleIdentifier": "com.argendar.app",
+      "buildNumber": "1"
     },
     "android": {
       "adaptiveIcon": {
@@ -24,6 +25,7 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.argendar.app",
+      "versionCode": 1,
       "googleServicesFile": "./google-services.json",
       "intentFilters": [
         {
@@ -46,7 +48,14 @@
     },
     "plugins": [
       "expo-secure-store",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#7C5CFC"
+        }
+      ]
     ],
     "extra": {
       "eas": {
