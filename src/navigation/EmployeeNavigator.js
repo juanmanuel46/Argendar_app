@@ -1,6 +1,7 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { View } from 'react-native'
 import { Feather } from '@expo/vector-icons'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import TodayScreen   from '../screens/employee/TodayScreen'
 import ProfileScreen from '../screens/employee/ProfileScreen'
 import { colors } from '../lib/theme'
@@ -8,6 +9,8 @@ import { colors } from '../lib/theme'
 const Tab = createBottomTabNavigator()
 
 export default function EmployeeNavigator() {
+  const insets = useSafeAreaInsets()
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -15,8 +18,8 @@ export default function EmployeeNavigator() {
         tabBarStyle: {
           backgroundColor: '#0B0B0F',
           borderTopColor: '#1f1f25',
-          height: 64,
-          paddingBottom: 10,
+          height: 54 + insets.bottom,
+          paddingBottom: insets.bottom + 6,
           paddingTop: 6,
         },
         tabBarActiveTintColor:   '#A78BFA',

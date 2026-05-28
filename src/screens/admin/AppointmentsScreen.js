@@ -7,13 +7,6 @@ import { colors, radius, spacing } from '../../lib/theme'
 import CancelAppointmentModal from '../../components/CancelAppointmentModal'
 import { getCategoryIcon } from '../../lib/categoryIcons'
 
-const FILTROS = [
-  { label: 'Todos',       value: null },
-  { label: 'Pendientes',  value: 'pending' },
-  { label: 'Completados', value: 'done' },
-  { label: 'Cancelados',  value: 'cancelled' },
-]
-
 const STATUS = {
   pending:   { label: 'Pendiente',  color: colors.warning, bg: colors.warningBg,  icon: 'clock' },
   in_progress: { label: 'En curso', color: colors.primary, bg: colors.primaryGlow, icon: 'activity' },
@@ -175,34 +168,25 @@ export default function AppointmentsScreen() {
         )}
       </View>
 
-      {/* Resumen del día */}
       <View style={s.summary}>
-        <View style={s.summaryItem}>
-          <Text style={s.summaryNum}>{turnos.length}</Text>
-          <Text style={s.summaryLabel}>Total</Text>
-        </View>
-        <View style={s.summaryDivider} />
-        <View style={s.summaryItem}>
-          <Text style={[s.summaryNum, { color: colors.warning }]}>{pendientes}</Text>
-          <Text style={s.summaryLabel}>Pendientes</Text>
-        </View>
-        <View style={s.summaryDivider} />
-        <View style={s.summaryItem}>
-          <Text style={[s.summaryNum, { color: colors.success }]}>{completados}</Text>
-          <Text style={s.summaryLabel}>Completados</Text>
-        </View>
-      </View>
-
-      {/* Filtros */}
-      <View style={s.filtros}>
-        {FILTROS.map(f => (
+        {[
+          { label: 'Total',       value: turnos.length,                                        color: colors.primary,  filtro: null },
+          { label: 'Pendientes',  value: turnos.filter(t => t.status === 'pending').length,    color: colors.warning,  filtro: 'pending' },
+          { label: 'Completados', value: completados,                                          color: colors.success,  filtro: 'done' },
+          { label: 'Cancelados',  value: turnos.filter(t => t.status === 'cancelled').length,  color: colors.danger,   filtro: 'cancelled' },
+        ].map((item, i) => (
           <TouchableOpacity
-            key={f.label}
-            style={[s.filtroBtn, filtro === f.value && s.filtroBtnActive]}
-            onPress={() => setFiltro(f.value)}
+            key={item.label}
+            style={[s.summaryItem, filtro === item.filtro && s.summaryItemActive]}
+            onPress={() => setFiltro(filtro === item.filtro ? null : item.filtro)}
             activeOpacity={0.7}
           >
-            <Text style={[s.filtroText, filtro === f.value && s.filtroTextActive]}>{f.label}</Text>
+            <Text style={[s.summaryNum, { color: filtro === item.filtro ? item.color : colors.textSecondary }]}>
+              {item.value}
+            </Text>
+            <Text style={[s.summaryLabel, filtro === item.filtro && { color: item.color }]}>
+              {item.label}
+            </Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -347,7 +331,6 @@ const s = StyleSheet.create({
   summaryItem:    { flex: 1, alignItems: 'center' },
   summaryNum:     { fontSize: 22, fontWeight: '800', color: colors.primary },
   summaryLabel:   { fontSize: 11, color: colors.textMuted, marginTop: 2 },
-  summaryDivider: { width: 1, height: 30, backgroundColor: colors.border },
   filtros:        { flexDirection: 'row', paddingHorizontal: 18, gap: 8, marginBottom: 8, flexWrap: 'wrap' },
   filtroBtn:      { paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.full, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
   filtroBtnActive:{ backgroundColor: colors.primaryGlow, borderColor: colors.primary },
@@ -383,4 +366,5 @@ const s = StyleSheet.create({
   btnCancel:      { width: 42, height: 42, borderRadius: radius.md, backgroundColor: colors.dangerBg, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(248,113,113,0.2)' },
   cancelReason:     { flexDirection: 'row', alignItems: 'flex-start', gap: 6, padding: 10, backgroundColor: colors.dangerBg, borderRadius: radius.md, marginBottom: 10, borderWidth: 1, borderColor: 'rgba(248,113,113,0.2)' },
   cancelReasonText: { flex: 1, fontSize: 12, color: colors.danger, lineHeight: 17 },
+  summaryItemActive: { borderBottomWidth: 2, borderBottomColor: colors.primary, paddingBottom: 2 },
 })

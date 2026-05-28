@@ -2,6 +2,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { View } from 'react-native'
 import { Feather } from '@expo/vector-icons'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import DashboardScreen        from '../screens/admin/DashboardScreen'
 import AppointmentsScreen     from '../screens/admin/AppointmentsScreen'
@@ -25,31 +26,17 @@ const HEADER_OPTS = {
 function SettingsStack() {
   return (
     <Stack.Navigator screenOptions={HEADER_OPTS}>
-      <Stack.Screen
-        name="SettingsMain"
-        component={SettingsScreen}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="EmployeeSchedule"
-        component={EmployeeScheduleScreen}
-        options={{ title: 'Horarios del empleado' }}
-      />
-      <Stack.Screen
-        name="EditBusiness"
-        component={EditBusinessScreen}
-        options={{ title: 'Editar negocio' }}
-      />
-      <Stack.Screen
-        name="Subscription"
-        component={SubscriptionScreen}
-        options={{ headerShown: false }}
-      />
+      <Stack.Screen name="SettingsMain"      component={SettingsScreen}         options={{ headerShown: false }} />
+      <Stack.Screen name="EmployeeSchedule"  component={EmployeeScheduleScreen} options={{ title: 'Horarios del empleado' }} />
+      <Stack.Screen name="EditBusiness"      component={EditBusinessScreen}     options={{ title: 'Editar negocio' }} />
+      <Stack.Screen name="Subscription"      component={SubscriptionScreen}     options={{ headerShown: false }} />
     </Stack.Navigator>
   )
 }
 
 export default function AdminNavigator() {
+  const insets = useSafeAreaInsets()
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -57,8 +44,8 @@ export default function AdminNavigator() {
         tabBarStyle: {
           backgroundColor: '#0B0B0F',
           borderTopColor:  '#1f1f25',
-          height:          64,
-          paddingBottom:   10,
+          height:          54 + insets.bottom,
+          paddingBottom:   insets.bottom + 6,
           paddingTop:      6,
         },
         tabBarActiveTintColor:   '#A78BFA',

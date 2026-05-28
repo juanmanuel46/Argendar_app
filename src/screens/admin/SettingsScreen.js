@@ -7,6 +7,7 @@ import { supabase } from '../../lib/supabase'
 import { colors, radius, spacing } from '../../lib/theme'
 import { getCategoryIcon } from '../../lib/categoryIcons'
 import { Toast, useToast } from '../../components/Toast'
+import * as Clipboard from 'expo-clipboard'
 
 export default function SettingsScreen({ navigation }) {
   const [loading,     setLoading]     = useState(true)
@@ -174,6 +175,20 @@ async function guardarEmpleado() {
 
   if (editEmpleado) {
     await supabase.from('employees').update(row).eq('id', editEmpleado.id)
+    
+    const emailCambio = eEmail.trim().toLowerCase() !== (editEmpleado.email || '').toLowerCase()
+    if (emailCambio && eEmail.trim()) {
+      const { error: fnError } = await supabase.functions.invoke('invite-employee', {
+        body: { email: eEmail.trim().toLowerCase(), negocio: negocio?.name }
+      })
+      if (!fnError) {
+        showToast(`Invitación enviada a ${eEmail}`, 'success')
+      } else {
+        showToast('Empleado actualizado', 'success')
+      }
+    } else {
+      showToast('Empleado actualizado', 'success')
+    }
   } else {
     const { data: empInsertado } = await supabase
       .from('employees')
@@ -215,7 +230,7 @@ async function guardarEmpleado() {
   if (loading) return <View style={s.center}><ActivityIndicator color={colors.primary} size="large" /></View>
 
   const diasTrial = negocio?.trial_ends_at
-    ? Math.max(0, Math.ceil((new Date(negocio.trial_ends_at) - new Date()) / 86400000))
+    ? Math.max(0, Math.ceil((new Date(negocio.trial_ends_at + 'T00:00:00') - new Date()) / 86400000))
     : null
 
   return (
@@ -244,16 +259,23 @@ async function guardarEmpleado() {
 
           <View style={s.divider} />
 
-          <View style={s.row}>
+          <TouchableOpacity
+            style={s.row}
+            activeOpacity={0.7}
+            onPress={async () => {
+              await Clipboard.setStringAsync(`argendar.com.ar/${negocio?.slug}`)
+              showToast('Link copiado al portapapeles', 'success')
+            }}
+          >
             <View style={[s.iconBox, { backgroundColor: colors.primaryGlow }]}>
               <Feather name="link" size={15} color={colors.primary} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={s.rowTitle}>argendar.com.ar/{negocio?.slug}</Text>
-              <Text style={s.rowSub}>Tu link de reservas · compartí con tus clientes</Text>
+              <Text style={s.rowSub}>Tu link de reservas · tocá para copiar</Text>
             </View>
-          </View>
-        </View>
+            <Feather name="copy" size={16} color={colors.textMuted} />
+          </TouchableOpacity>
 
         {/* ── Suscripción ── */}
         <Text style={s.seccion}>Suscripción</Text>
