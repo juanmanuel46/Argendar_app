@@ -8,6 +8,7 @@ import { Feather } from '@expo/vector-icons'
 import { supabase } from '../../lib/supabase'
 import { colors, radius, spacing } from '../../lib/theme'
 import { Toast, useToast } from '../../components/Toast'
+import { useState, useEffect, useRef } from 'react'
 
 export default function ResetPasswordScreen({ navigation, route }) {
   const [password,        setPassword]        = useState('')
@@ -16,26 +17,33 @@ export default function ResetPasswordScreen({ navigation, route }) {
   const [showPassword,    setShowPassword]    = useState(false)
   const [sessionReady,    setSessionReady]    = useState(false)
   const { toast, showToast, hideToast } = useToast()
+  const sessionReadyRef = useRef(false)
 
   useEffect(() => {
-    // Verificar si hay sesión activa al montar la pantalla
-    async function checkSession() {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session) {
-        setSessionReady(true)
-      } else {
-        showToast('El link expiró. Pedí una nueva invitación.', 'error')
-      }
-    }
-    checkSession()
-
-    // Escuchar cambios de sesión (cuando Supabase procesa el token del link)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if ((event === 'SIGNED_IN' || event === 'PASSWORD_RECOVERY') && session) {
+        sessionReadyRef.current = true
         setSessionReady(true)
       }
     })
-    return () => subscription.unsubscribe()
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        sessionReadyRef.current = true
+        setSessionReady(true)
+      }
+    })
+
+    const timeout = setTimeout(() => {
+      if (!sessionReadyRef.current) {
+        showToast('El link expiró. Pedí una nueva invitación.', 'error')
+      }
+    }, 5000)
+
+    return () => {
+      subscription.unsubscribe()
+      clearTimeout(timeout)
+    }
   }, [])
 
   async function handleReset() {
