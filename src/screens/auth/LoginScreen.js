@@ -1,22 +1,20 @@
 import { useState } from 'react'
-import {
-  View, Text, TextInput, TouchableOpacity,
-  StyleSheet, Alert, ActivityIndicator,
-  KeyboardAvoidingView, Platform, ScrollView, StatusBar
-} from 'react-native'
+import {View, Text, TextInput, TouchableOpacity,StyleSheet, Alert, ActivityIndicator,KeyboardAvoidingView, Platform, ScrollView, StatusBar} from 'react-native'
 import { Feather } from '@expo/vector-icons'
 import { supabase } from '../../lib/supabase'
 import { colors, radius, spacing } from '../../lib/theme'
+import { Toast, useToast } from '../../components/Toast'
 
 export default function LoginScreen({ navigation }) {
   const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
   const [loading,  setLoading]  = useState(false)
   const [showPass, setShowPass] = useState(false)
+  const { toast, showToast, hideToast } = useToast()
 
   async function handleLogin() {
     if (!email.trim() || !password.trim()) {
-      Alert.alert('Campos requeridos', 'Completá tu email y contraseña')
+      showToast('Completá tu email y contraseña', 'warning')
       return
     }
     setLoading(true)
@@ -24,7 +22,7 @@ export default function LoginScreen({ navigation }) {
       email:    email.trim().toLowerCase(),
       password: password.trim(),
     })
-    if (error) Alert.alert('Error', 'Email o contraseña incorrectos')
+    if (error) showToast('Email o contraseña incorrectos', 'error')
     setLoading(false)
   }
 
@@ -96,10 +94,12 @@ export default function LoginScreen({ navigation }) {
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={s.footer} onPress={() => navigation.navigate('Register')}>
+          <TouchableOpacity style={s.footer} onPress={() => navigation.navigate('Register')}>
           <Text style={s.footerText}>¿No tenés cuenta?</Text>
           <Text style={s.footerLink}>Crear negocio gratis</Text>
         </TouchableOpacity>
+
+        <Toast visible={toast.visible} message={toast.message} type={toast.type} onHide={hideToast} />
 
       </ScrollView>
     </KeyboardAvoidingView>

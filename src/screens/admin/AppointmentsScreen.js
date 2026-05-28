@@ -1,13 +1,11 @@
 import { useState, useCallback, useRef } from 'react'
-import {
-  View, Text, FlatList, TouchableOpacity, StyleSheet,
-  ActivityIndicator, Alert, RefreshControl, StatusBar
-} from 'react-native'
+import {View, Text, FlatList, TouchableOpacity, StyleSheet,ActivityIndicator, Alert, RefreshControl, StatusBar} from 'react-native'
 import { useFocusEffect } from '@react-navigation/native'
 import { Feather } from '@expo/vector-icons'
 import { supabase } from '../../lib/supabase'
 import { colors, radius, spacing } from '../../lib/theme'
 import CancelAppointmentModal from '../../components/CancelAppointmentModal'
+import { getCategoryIcon } from '../../lib/categoryIcons'
 
 const FILTROS = [
   { label: 'Todos',       value: null },
@@ -51,6 +49,7 @@ export default function AppointmentsScreen() {
   const businessIdRef = useRef(null)
   const [cancelModalVisible, setCancelModalVisible]   = useState(false)
   const [appointmentToCancel, setAppointmentToCancel] = useState(null)
+  const [businessCategory, setBusinessCategory] = useState(null)
 
   useFocusEffect(useCallback(() => {
     fetchAll()
@@ -63,6 +62,14 @@ export default function AppointmentsScreen() {
         .from('app_users').select('business_id').eq('id', user.id).single()
       if (!appUser) { setLoading(false); return }
       businessIdRef.current = appUser.business_id
+
+      // Traemos la categoría del negocio para los iconos
+      const { data: biz } = await supabase
+        .from('businesses')
+        .select('category')
+        .eq('id', appUser.business_id)
+        .single()
+      setBusinessCategory(biz?.category)
     }
     fetchTurnos()
   }
@@ -269,7 +276,7 @@ export default function AppointmentsScreen() {
                   {/* Meta */}
                   <View style={s.metaRow}>
                     <View style={s.metaItem}>
-                      <Feather name="scissors" size={12} color={colors.textMuted} />
+                      <Feather name={getCategoryIcon(businessCategory)} size={12} color={colors.textMuted} />
                       <Text style={s.metaText}>{item.services?.name}</Text>
                     </View>
                     {item.employees?.name && (

@@ -1,4 +1,5 @@
-import { View, Text, TouchableOpacity, StyleSheet, StatusBar, Alert } from 'react-native'
+import { useEffect } from 'react'
+import { View, Text, TouchableOpacity, StyleSheet, StatusBar, Alert, DeviceEventEmitter } from 'react-native'
 import { Feather } from '@expo/vector-icons'
 import { supabase } from '../../lib/supabase'
 import { colors, radius, spacing } from '../../lib/theme'
@@ -6,11 +7,19 @@ import { colors, radius, spacing } from '../../lib/theme'
 export default function ConfirmEmailScreen({ route, navigation }) {
   const { email } = route.params
 
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        DeviceEventEmitter.emit('recheck_user_state')
+      }
+    })
+    return () => subscription.unsubscribe()
+  }, [])
+
   async function reenviar() {
     await supabase.auth.resend({ type: 'signup', email })
     Alert.alert('Listo ✓', 'Te reenviamos el email de confirmación.')
   }
-
   return (
     <View style={s.root}>
       <StatusBar barStyle="light-content" />

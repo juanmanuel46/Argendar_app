@@ -1,11 +1,9 @@
 import { useState } from 'react'
-import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
-  Alert, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StatusBar
-} from 'react-native'
+import {View, Text, TextInput, TouchableOpacity, StyleSheet,Alert, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StatusBar} from 'react-native'
 import { Feather } from '@expo/vector-icons'
 import { supabase } from '../../lib/supabase'
 import { colors, radius, spacing } from '../../lib/theme'
+import { Toast, useToast } from '../../components/Toast'
 
 export default function RegisterScreen({ navigation }) {
   const [nombre,    setNombre]    = useState('')
@@ -14,12 +12,13 @@ export default function RegisterScreen({ navigation }) {
   const [password2, setPassword2] = useState('')
   const [loading,   setLoading]   = useState(false)
   const [showPass,  setShowPass]  = useState(false)
+  const { toast, showToast, hideToast } = useToast()
 
 async function handleRegister() {
-  if (!nombre.trim())         { Alert.alert('Ingresá tu nombre'); return }
-  if (!email.trim())          { Alert.alert('Ingresá tu email'); return }
-  if (password.length < 6)    { Alert.alert('La contraseña debe tener al menos 6 caracteres'); return }
-  if (password !== password2) { Alert.alert('Las contraseñas no coinciden'); return }
+  if (!nombre.trim())         { showToast('Ingresá tu nombre', 'warning'); return }
+  if (!email.trim())          { showToast('Ingresá tu email', 'warning'); return }
+  if (password.length < 6)    { showToast('La contraseña debe tener al menos 6 caracteres', 'warning'); return }
+  if (password !== password2) { showToast('Las contraseñas no coinciden', 'warning'); return }
 
   setLoading(true)
   try {
@@ -33,7 +32,7 @@ async function handleRegister() {
 
     // Email ya registrado (Supabase devuelve identities vacío en este caso)
     if (data?.user?.identities?.length === 0) {
-      Alert.alert('Email en uso', 'Ya existe una cuenta con ese email.')
+      showToast('Ya existe una cuenta con ese email', 'error')
       return
     }
 
@@ -41,7 +40,7 @@ async function handleRegister() {
     navigation.navigate('ConfirmEmail', { email: email.trim().toLowerCase() })
 
   } catch (e) {
-    Alert.alert('Error', e.message || 'Ocurrió un error al crear la cuenta')
+    showToast(e.message || 'Ocurrió un error al crear la cuenta', 'error')
   } finally {
     setLoading(false)
   }
@@ -121,6 +120,7 @@ async function handleRegister() {
           <Text style={s.loginText}>¿Ya tenés cuenta?</Text>
           <Text style={s.loginLink}> Ingresá</Text>
         </TouchableOpacity>
+        <Toast visible={toast.visible} message={toast.message} type={toast.type} onHide={hideToast} />
       </ScrollView>
     </KeyboardAvoidingView>
   )

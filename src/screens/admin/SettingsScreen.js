@@ -1,13 +1,12 @@
 import { useState, useCallback } from 'react'
-import {
-  View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  ActivityIndicator, Switch, Alert, TextInput, Modal, Image
-} from 'react-native'
+import {View, Text, StyleSheet, TouchableOpacity, ScrollView,ActivityIndicator, Switch, Alert, TextInput, Modal, Image} from 'react-native'
 import { useFocusEffect } from '@react-navigation/native'
 import { Feather } from '@expo/vector-icons'
 import * as ImagePicker from 'expo-image-picker'
 import { supabase } from '../../lib/supabase'
 import { colors, radius, spacing } from '../../lib/theme'
+import { getCategoryIcon } from '../../lib/categoryIcons'
+import { Toast, useToast } from '../../components/Toast'
 
 export default function SettingsScreen({ navigation }) {
   const [loading,     setLoading]     = useState(true)
@@ -34,6 +33,8 @@ export default function SettingsScreen({ navigation }) {
   const [eEmail,       setEEmail]       = useState('')
   const [eAvatarUri,   setEAvatarUri]   = useState(null)
   const [uploadingImg, setUploadingImg] = useState(false)
+
+  const { toast, showToast, hideToast } = useToast()
 
   useFocusEffect(useCallback(() => { fetchData() }, []))
 
@@ -72,7 +73,7 @@ export default function SettingsScreen({ navigation }) {
     setModalServicio(true)
   }
   async function guardarServicio() {
-    if (!sNombre.trim() || !sPrecio.trim()) { Alert.alert('Completá nombre y precio'); return }
+    if (!sNombre.trim() || !sPrecio.trim()) { showToast('Completá nombre y precio', 'warning'); return }
     const row = { name: sNombre.trim(), price: parseInt(sPrecio), duration_minutes: parseInt(sDuracion)||30, business_id: businessId, active: true }
     editServicio
       ? await supabase.from('services').update(row).eq('id', editServicio.id)
@@ -133,8 +134,6 @@ async function pickImage() {
     ]
   )
 }
-
-// ── Upload corregido con ArrayBuffer ─────────────────────────────────
 async function uploadAvatar(uri) {
   try {
     const ext  = uri.split('.').pop()?.split('?')[0] || 'jpg'
@@ -156,7 +155,7 @@ async function uploadAvatar(uri) {
   }
 }
 async function guardarEmpleado() {
-  if (!eNombre.trim()) { Alert.alert('Ingresá el nombre del empleado'); return }
+  if (!eNombre.trim()) { showToast('Ingresá el nombre del empleado', 'warning'); return }
   setUploadingImg(true)
 
   let avatarUrl = editEmpleado?.avatar_url || null
@@ -182,23 +181,17 @@ async function guardarEmpleado() {
       .select()
       .single()
 
-    // Si tiene email → mandar invitación
     if (eEmail.trim() && empInsertado) {
-      try {
-        await supabase.functions.invoke('invite-employee', {
-          body: { email: eEmail.trim().toLowerCase(), negocio: negocio?.name }
-        })
-        Alert.alert(
-          '✓ Empleado agregado',
-          `Le mandamos una invitación a ${eEmail} para que descargue la app y cree su contraseña.`
-        )
-      } catch (e) {
-        // Si falla la invitación no es crítico, el empleado igual queda creado
-        Alert.alert(
-          '✓ Empleado agregado',
-          `${eNombre} fue agregado. No pudimos enviar la invitación por email, podés reintentarlo después.`
-        )
+      const { error: fnError } = await supabase.functions.invoke('invite-employee', {
+        body: { email: eEmail.trim().toLowerCase(), negocio: negocio?.name }
+      })
+      if (fnError) {
+        showToast(`${eNombre} fue agregado`, 'success')
+      } else {
+        showToast(`Invitación enviada a ${eEmail}`, 'success')
       }
+    } else {
+      showToast(`${eNombre} fue agregado`, 'success')
     }
   }
 
@@ -227,7 +220,7 @@ async function guardarEmpleado() {
 
   return (
     <>
-      <ScrollView style={s.root} contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+      <ScrollView style={s.root} contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
         <Text style={s.titulo}>Ajustes</Text>
         <Text style={s.sub}>{negocio?.name}</Text>
 
@@ -306,7 +299,7 @@ async function guardarEmpleado() {
               {i > 0 && <View style={s.divider} />}
               <View style={s.row}>
                 <View style={[s.iconBox, { backgroundColor: colors.primaryGlow }]}>
-                  <Feather name="scissors" size={14} color={colors.primary} />
+                  <Feather name={getCategoryIcon(negocio?.category)} size={14} color={colors.primary} />
                 </View>
                 <TouchableOpacity style={{ flex: 1 }} onPress={() => abrirEditarServicio(serv)}>
                   <Text style={[s.rowTitle, !serv.active && { color: colors.textMuted }]}>{serv.name}</Text>
@@ -466,6 +459,7 @@ async function guardarEmpleado() {
           </View>
         </View>
       </Modal>
+      <Toast visible={toast.visible} message={toast.message} type={toast.type} onHide={hideToast} />
     </>
   )
 }

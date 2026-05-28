@@ -5,14 +5,14 @@ import { Feather } from '@expo/vector-icons'
 import { supabase } from '../../lib/supabase'
 import { colors, radius, spacing } from '../../lib/theme'
 import CancelAppointmentModal from '../../components/CancelAppointmentModal'
+import { getCategoryIcon } from '../../lib/categoryIcons'
 
 const STATUS_CONFIG = {
   pending:   { label: 'Pendiente',   color: colors.warning, bg: colors.warningBg,  icon: 'clock' },
   done: { label: 'Completado',  color: colors.success, bg: colors.successBg,  icon: 'check-circle' },
   cancelled: { label: 'Cancelado',   color: colors.danger,  bg: colors.dangerBg,   icon: 'x-circle' },
 }
-
-function TurnoCard({ item, onComplete, onCancel }) {
+function TurnoCard({ item, businessCategory, onComplete, onCancel }) {
   const cfg = STATUS_CONFIG[item.status] || STATUS_CONFIG.pending
   return (
     <View style={[s.card, item.status === 'cancelled' && s.cardCancelled, item.status === 'done' && s.cardDone]}>
@@ -43,7 +43,7 @@ function TurnoCard({ item, onComplete, onCancel }) {
       </View>
 
       <View style={s.serviceRow}>
-        <Feather name="scissors" size={12} color={colors.textMuted} />
+        <Feather name={getCategoryIcon(businessCategory)} size={12} color={colors.textMuted} />
         <Text style={s.serviceName}>{item.services?.name}</Text>
       </View>
       {item.status === 'cancelled' && item.cancellation_reason && (
@@ -74,6 +74,7 @@ export default function TodayScreen() {
   const [empInfo,    setEmpInfo]    = useState({ name: '', negocio: '' })
   const [cancelModalVisible, setCancelModalVisible]   = useState(false)
   const [appointmentToCancel, setAppointmentToCancel] = useState(null)
+  const [businessCategory, setBusinessCategory] = useState(null)
 
   useFocusEffect(useCallback(() => { fetchTurnos() }, []))
 
@@ -81,12 +82,13 @@ export default function TodayScreen() {
     const { data: { user } } = await supabase.auth.getUser()
     const { data: appUser } = await supabase
       .from('app_users')
-      .select('employee_id, business_id, employees(name), businesses(name)')
+      .select('employee_id, business_id, employees(name), businesses(name, category)')    
       .eq('id', user.id)
       .single()
 
     if (!appUser) { setLoading(false); return }
     setEmpInfo({ name: appUser.employees?.name || '', negocio: appUser.businesses?.name || '' })
+    setBusinessCategory(appUser.businesses?.category || null)
 
     const hoy = new Date().toISOString().split('T')[0]
     let query = supabase
@@ -199,6 +201,7 @@ export default function TodayScreen() {
         renderItem={({ item }) => (
           <TurnoCard
             item={item}
+            businessCategory={businessCategory} 
             onComplete={() => handleComplete(item.id)}
             onCancel={() => abrirModalCancelar(item)}
           />

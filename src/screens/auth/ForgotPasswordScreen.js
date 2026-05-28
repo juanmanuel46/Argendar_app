@@ -6,88 +6,91 @@ import {
 import { Feather } from '@expo/vector-icons'
 import { supabase } from '../../lib/supabase'
 import { colors, radius, spacing } from '../../lib/theme'
+import { Toast, useToast } from '../../components/Toast'
 
 export default function ForgotPasswordScreen({ navigation }) {
   const [email,   setEmail]   = useState('')
   const [loading, setLoading] = useState(false)
   const [sent,    setSent]    = useState(false)
+  const { toast, showToast, hideToast } = useToast()
 
   async function handleReset() {
-    if (!email.trim()) { Alert.alert('Ingresá tu email'); return }
+    if (!email.trim()) { showToast('Ingresá tu email', 'warning'); return }
     setLoading(true)
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase())
+    const { error } = await supabase.auth.resetPasswordForEmail(
+      email.trim().toLowerCase(),
+      { redirectTo: 'argendar://reset-password' }
+    )
     setLoading(false)
-    if (error) { Alert.alert('Error', error.message); return }
+    if (error) { showToast(error.message, 'error'); return }
     setSent(true)
   }
 
-  if (sent) return (
-    <View style={s.root}>
-      <StatusBar barStyle="light-content" />
-      <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
-        <Feather name="arrow-left" size={20} color={colors.textSecondary} />
-      </TouchableOpacity>
-      <View style={s.sentWrap}>
-        <View style={s.sentIcon}>
-          <Feather name="check-circle" size={36} color={colors.success} />
-        </View>
-        <Text style={s.sentTitle}>Email enviado</Text>
-        <Text style={s.sentText}>
-          Revisá tu bandeja de entrada en{'\n'}
-          <Text style={{ color: colors.primary, fontWeight: '600' }}>{email}</Text>
-          {'\n\n'}Seguí las instrucciones para restablecer tu contraseña.
-        </Text>
-        <TouchableOpacity style={s.btn} onPress={() => navigation.navigate('Login')} activeOpacity={0.85}>
-          <Text style={s.btnText}>Volver al login</Text>
-          <Feather name="arrow-right" size={18} color="white" />
-        </TouchableOpacity>
+if (sent) return (
+  <View style={s.root}>
+    <StatusBar barStyle="light-content" />
+    <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
+      <Feather name="arrow-left" size={20} color={colors.textSecondary} />
+    </TouchableOpacity>
+    <View style={s.sentWrap}>
+      <View style={s.sentIcon}>
+        <Feather name="check-circle" size={36} color={colors.success} />
       </View>
+      <Text style={s.sentTitle}>Email enviado</Text>
+      <Text style={s.sentText}>
+        Revisá tu bandeja de entrada en{'\n'}
+        <Text style={{ color: colors.primary, fontWeight: '600' }}>{email}</Text>
+        {'\n\n'}Seguí las instrucciones para restablecer tu contraseña.
+      </Text>
+      <TouchableOpacity style={s.btn} onPress={() => navigation.navigate('Login')} activeOpacity={0.85}>
+        <Text style={s.btnText}>Volver al login</Text>
+        <Feather name="arrow-right" size={18} color="white" />
+      </TouchableOpacity>
     </View>
-  )
+    <Toast visible={toast.visible} message={toast.message} type={toast.type} onHide={hideToast} />
+  </View>
+)
 
-  return (
-    <KeyboardAvoidingView style={s.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <StatusBar barStyle="light-content" />
-      <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
-        <Feather name="arrow-left" size={20} color={colors.textSecondary} />
-      </TouchableOpacity>
-
-      <View style={s.content}>
-        <View style={s.iconWrap}>
-          <Feather name="key" size={28} color={colors.primary} />
-        </View>
-        <Text style={s.title}>Olvidé mi contraseña</Text>
-        <Text style={s.sub}>Ingresá tu email y te enviamos un link para crear una nueva.</Text>
-
-        <Text style={s.label}>Email</Text>
-        <View style={s.inputWrap}>
-          <Feather name="mail" size={16} color={colors.textMuted} style={{ marginRight: 10 }} />
-          <TextInput
-            style={s.input}
-            placeholder="tu@email.com"
-            placeholderTextColor={colors.textMuted}
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-        </View>
-
-        <TouchableOpacity style={s.btn} onPress={handleReset} disabled={loading} activeOpacity={0.85}>
-          {loading
-            ? <ActivityIndicator color="white" />
-            : <>
-                <Text style={s.btnText}>Enviar instrucciones</Text>
-                <Feather name="send" size={16} color="white" />
-              </>
-          }
-        </TouchableOpacity>
+return (
+  <KeyboardAvoidingView style={s.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <StatusBar barStyle="light-content" />
+    <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()}>
+      <Feather name="arrow-left" size={20} color={colors.textSecondary} />
+    </TouchableOpacity>
+    <View style={s.content}>
+      <View style={s.iconWrap}>
+        <Feather name="key" size={28} color={colors.primary} />
       </View>
-    </KeyboardAvoidingView>
-  )
-}
-
+      <Text style={s.title}>Olvidé mi contraseña</Text>
+      <Text style={s.sub}>Ingresá tu email y te enviamos un link para crear una nueva.</Text>
+      <Text style={s.label}>Email</Text>
+      <View style={s.inputWrap}>
+        <Feather name="mail" size={16} color={colors.textMuted} style={{ marginRight: 10 }} />
+        <TextInput
+          style={s.input}
+          placeholder="tu@email.com"
+          placeholderTextColor={colors.textMuted}
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+      </View>
+      <TouchableOpacity style={s.btn} onPress={handleReset} disabled={loading} activeOpacity={0.85}>
+        {loading
+          ? <ActivityIndicator color="white" />
+          : <>
+              <Text style={s.btnText}>Enviar instrucciones</Text>
+              <Feather name="send" size={16} color="white" />
+            </>
+        }
+      </TouchableOpacity>
+    </View>
+    <Toast visible={toast.visible} message={toast.message} type={toast.type} onHide={hideToast} />
+  </KeyboardAvoidingView>
+)
+} 
 const s = StyleSheet.create({
   root:      { flex: 1, backgroundColor: colors.bg, paddingTop: 56, padding: spacing.lg },
   backBtn:   { width: 40, height: 40, borderRadius: radius.full, backgroundColor: colors.card, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: colors.border, marginBottom: spacing.xl },

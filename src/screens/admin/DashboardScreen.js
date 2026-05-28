@@ -108,7 +108,12 @@ export default function DashboardScreen() {
       .select('status, client_id, service_id')
       .eq('business_id', appUser.business_id)
       .gte('date', from)
-      .lte('date', today.toISOString().split('T')[0])
+      .lte('date', (() => {
+        const fin = new Date(today)
+        if (periodo === 'semana') fin.setDate(today.getDate() + 7)
+        else if (periodo === 'mes') fin.setMonth(today.getMonth() + 1)
+        return fin.toISOString().split('T')[0]
+      })())
 
     // 2. Traer los servicios del negocio
     const { data: servicios } = await supabase

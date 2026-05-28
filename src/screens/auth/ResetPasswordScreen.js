@@ -28,14 +28,21 @@ export default function ResetPasswordScreen({ navigation }) {
       const { error } = await supabase.auth.updateUser({ password })
       if (error) throw error
 
-      Alert.alert(
-        '✓ Contraseña actualizada',
-        'Ya podés ingresar con tu nueva contraseña',
-        [{ text: 'OK', onPress: async () => {
-          await supabase.auth.signOut()
+    Alert.alert(
+      '✓ Contraseña actualizada',
+      'Ya podés ingresar con tu nueva contraseña',
+      [{ text: 'OK', onPress: async () => {
+        const { data: { user } } = await supabase.auth.getUser()
+        const email = user?.email
+
+        await supabase.auth.signOut()
+
+        const { error } = await supabase.auth.signInWithPassword({ email, password })
+        if (error) {
           navigation.reset({ index: 0, routes: [{ name: 'Login' }] })
-        }}]
-      )
+        }
+      }}]
+    )
     } catch (e) {
       Alert.alert('Error', e.message)
     } finally {

@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react'
-import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
-  Alert, ActivityIndicator, ScrollView, Switch, StatusBar
-} from 'react-native'
+import { View, Text, TextInput, TouchableOpacity, StyleSheet,Alert, ActivityIndicator, ScrollView, Switch, StatusBar} from 'react-native'
 import { Feather } from '@expo/vector-icons'
 import { supabase } from '../../lib/supabase'
 import { colors, radius, spacing } from '../../lib/theme'
+import { Image } from 'react-native'
+import * as ImagePicker from 'expo-image-picker'
 
 const CATEGORIAS = [
   { icon: '✂️', nombre: 'Barbería' },   { icon: '💇', nombre: 'Peluquería' },
@@ -24,6 +23,8 @@ export default function EditBusinessScreen({ route, navigation }) {
   const [desc,     setDesc]     = useState('')
   const [categoria, setCategoria] = useState('')
   const [allowEmp, setAllowEmp] = useState(false)
+  const [eAvatarUri,   setEAvatarUri]   = useState(null)
+  const [currentLogo, setCurrentLogo] = useState(null)
 
   useEffect(() => {
     fetchBiz()
@@ -32,7 +33,7 @@ export default function EditBusinessScreen({ route, navigation }) {
   async function fetchBiz() {
     const { data } = await supabase
       .from('businesses')
-      .select('name, description, category, allow_employee_selection')
+      .select('name, description, category, allow_employee_selection, logo_url')
       .eq('id', businessId)
       .single()
     if (data) {
@@ -40,27 +41,109 @@ export default function EditBusinessScreen({ route, navigation }) {
       setDesc(data.description || '')
       setCategoria(data.category || '')
       setAllowEmp(data.allow_employee_selection || false)
+      setCurrentLogo(data.logo_url || null)
     }
     setLoading(false)
   }
 
-  async function guardar() {
-    if (!nombre.trim()) { Alert.alert('El nombre es requerido'); return }
-    setSaving(true)
-    const { error } = await supabase
+async function uploadLogo(uri, businessId) {
+  try {
+    const ext = uri.split('.').pop()?.split('?')[0] || 'jpg'
+    const path = `businesses/${businessId}-${Date.now()}.${ext}`
+
+    const resp = await fetch(uri)
+    const arrayBuffer = await resp.arrayBuffer()
+
+    const { error } = await supabase.storage
       .from('businesses')
-      .update({
-        name:                     nombre.trim(),
-        description:              desc.trim(),
-        category:                 categoria,
-        allow_employee_selection: allowEmp,
+      .upload(path, arrayBuffer, {
+        contentType: `image/${ext}`,
+        upsert: true,
       })
-      .eq('id', businessId)
-    setSaving(false)
-    if (error) { Alert.alert('Error', error.message); return }
-    Alert.alert('✓ Guardado', 'Los datos del negocio se actualizaron', [
-      { text: 'OK', onPress: () => navigation.goBack() }
-    ])
+
+    if (error) throw error
+
+    return supabase.storage
+      .from('businesses')
+      .getPublicUrl(path).data.publicUrl
+
+  } catch (e) {
+    console.log('UPLOAD ERROR LOGO:', e)
+    return null
+  }
+}
+
+  async function pickImage() {
+    Alert.alert(
+      'Logo del comercio',
+      '¿De dónde querés elegir la foto?',
+      [
+        {
+          text: 'Cámara',
+          onPress: async () => {
+            const { status } = await ImagePicker.requestCameraPermissionsAsync()
+            if (status !== 'granted') { Alert.alert('Permiso de cámara denegado'); return }
+            const r = await ImagePicker.launchCameraAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1, 1], quality: 0.6,
+            })
+            if (!r.canceled) setEAvatarUri(r.assets[0].uri)
+          }
+        },
+        {
+          text: 'Galería',
+          onPress: async () => {
+            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+            if (status !== 'granted') { Alert.alert('Permiso de galería denegado'); return }
+            const r = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1, 1], quality: 0.6,
+            })
+            if (!r.canceled) setEAvatarUri(r.assets[0].uri)
+          }
+        },
+        { text: 'Cancelar', style: 'cancel' }
+      ]
+    )
+  }
+  
+  async function guardar() {
+    if (!nombre.trim()) {
+      Alert.alert('El nombre es requerido')
+      return
+    }
+
+    setSaving(true)
+
+    try {
+      let logoUrl = currentLogo
+
+      if (eAvatarUri) {
+        logoUrl = await uploadLogo(eAvatarUri, businessId)
+      }
+      const updateData = {
+        name: nombre.trim(),
+        description: desc.trim(),
+        category: categoria,
+        allow_employee_selection: allowEmp,
+      }
+
+      updateData.logo_url = logoUrl
+
+      const { error } = await supabase
+        .from('businesses')
+        .update(updateData)
+        .eq('id', businessId)
+
+      if (error) throw error
+
+      Alert.alert('✓ Guardado', 'Los datos del negocio se actualizaron', [
+        { text: 'OK', onPress: () => navigation.goBack() }
+      ])
+
+    } catch (err) {
+      Alert.alert('Error', err.message)
+    } finally {
+      setSaving(false)
+    }
   }
 
   if (loading) return (
@@ -73,7 +156,22 @@ export default function EditBusinessScreen({ route, navigation }) {
 
       <Text style={s.titulo}>Editar negocio</Text>
       <Text style={s.sub}>Esta información la ven tus clientes al reservar</Text>
-
+      <TouchableOpacity
+        style={s.fotoPicker}
+        onPress={pickImage}
+        activeOpacity={0.85}
+      >
+        {eAvatarUri ? (
+          <Image source={{ uri: eAvatarUri }} style={s.fotoImg} />
+        ) : currentLogo ? (
+          <Image source={{ uri: currentLogo }} style={s.fotoImg} />
+        ) : (
+          <View style={s.fotoPlaceholder}>
+            <Feather name="camera" size={26} color={colors.textMuted} />
+            <Text style={s.fotoLabel}>Cambiar foto</Text>
+          </View>
+        )}
+      </TouchableOpacity>
       <Text style={s.label}>Nombre del negocio</Text>
       <View style={s.inputWrap}>
         <Feather name="briefcase" size={16} color={colors.textMuted} style={s.inputIcon} />
@@ -89,7 +187,7 @@ export default function EditBusinessScreen({ route, navigation }) {
 
       <Text style={s.label}>Descripción</Text>
       <TextInput
-        style={[s.inputWrap, { height: 90, paddingTop: 12, alignItems: 'flex-start', paddingLeft: 14 }]}
+        style={s.inputMulti}
         placeholder="Contá brevemente qué ofrecés..."
         placeholderTextColor={colors.textMuted}
         value={desc}
@@ -97,7 +195,6 @@ export default function EditBusinessScreen({ route, navigation }) {
         multiline
         numberOfLines={3}
         textAlignVertical="top"
-        style={s.inputMulti}
       />
 
       <Text style={s.label}>Categoría</Text>
@@ -163,4 +260,40 @@ const s = StyleSheet.create({
   toggleSub:    { fontSize: 12, color: colors.textMuted, marginTop: 2 },
   btn:          { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: colors.primary, borderRadius: radius.lg, padding: 16, marginTop: 24 },
   btnText:      { color: 'white', fontSize: 16, fontWeight: '700' },
+  fotoPicker: {
+  alignSelf: 'center',
+  marginBottom: 20,
+},
+
+fotoImg: {
+  width: 100,
+  height: 100,
+  borderRadius: 50,
+  borderWidth: 2,
+  borderColor: colors.primary,
+},
+
+fotoPlaceholder: {
+  width: 100,
+  height: 100,
+  borderRadius: 50,
+  justifyContent: 'center',
+  alignItems: 'center',
+  backgroundColor: colors.card,
+  borderWidth: 1,
+  borderColor: colors.border,
+},
+
+fotoLabel: {
+  fontSize: 11,
+  color: colors.textMuted,
+  marginTop: 4,
+  fontWeight: '600',
+},
+
+fotoHint: {
+  fontSize: 9,
+  color: colors.textMuted,
+  opacity: 0.7,
+},
 })

@@ -24,9 +24,17 @@ export default function Navigation() {
 
   // ── Auth + sesión ──────────────────────────────────────────────────
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) checkUserState(session.user)
-      else { setAppState('no_session'); setLoading(false) }
+    Linking.getInitialURL().then(url => {
+      if (url?.includes('reset-password')) {
+        setAppState('reset_password')
+        setLoading(false)
+        return
+      }
+
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) checkUserState(session.user)
+        else { setAppState('no_session'); setLoading(false) }
+      })
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
