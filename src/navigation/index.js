@@ -1,6 +1,6 @@
 import { NavigationContainer } from '@react-navigation/native'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { View, ActivityIndicator, DeviceEventEmitter, Linking } from 'react-native'
 import { supabase } from '../lib/supabase'
 import { colors } from '../lib/theme'
@@ -21,25 +21,33 @@ const Stack = createNativeStackNavigator()
 export default function Navigation() {
   const [loading,  setLoading]  = useState(true)
   const [appState, setAppState] = useState('loading')
+  const appStateRef = useRef('loading')
+
+  function updateAppState(newState) {
+    appStateRef.current = newState
+    setAppState(newState)
+  }
 
   // ── Auth + sesión ──────────────────────────────────────────────────
   useEffect(() => {
     Linking.getInitialURL().then(url => {
       if (url?.includes('reset-password')) {
-        setAppState('reset_password')
+        updateAppState('reset_password')
         setLoading(false)
         return
       }
 
       supabase.auth.getSession().then(({ data: { session } }) => {
         if (session) checkUserState(session.user)
-        else { setAppState('no_session'); setLoading(false) }
+        else { updateAppState('no_session'); setLoading(false) }
       })
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      // Si estamos en reset_password, no interrumpir
+      if (appStateRef.current === 'reset_password') return
       if (session) checkUserState(session.user)
-      else { setAppState('no_session'); setLoading(false) }
+      else { updateAppState('no_session'); setLoading(false) }
     })
 
     const eventSub = DeviceEventEmitter.addListener('recheck_user_state', async () => {
@@ -56,11 +64,11 @@ export default function Navigation() {
   // ── Deep links ─────────────────────────────────────────────────────
   useEffect(() => {
     const sub = Linking.addEventListener('url', ({ url }) => {
-      if (url?.includes('reset-password')) setAppState('reset_password')
+      if (url?.includes('reset-password')) updateAppState('reset_password')
     })
 
     Linking.getInitialURL().then(url => {
-      if (url?.includes('reset-password')) setAppState('reset_password')
+      if (url?.includes('reset-password')) updateAppState('reset_password')
     })
 
     return () => sub.remove()
@@ -90,22 +98,22 @@ export default function Navigation() {
           employee_id: emp.id,
           role:        'employee',
         })
-        setAppState('employee')
+        updateAppState('employee')
       } else {
-        setAppState('onboarding')
+        updateAppState('onboarding')
       }
       setLoading(false)
       return
     }
 
     if (appUser.role === 'employee') {
-      setAppState('employee')
+      updateAppState('employee')
       setLoading(false)
       return
     }
 
     if (!appUser.business_id) {
-      setAppState('onboarding')
+      updateAppState('onboarding')
       setLoading(false)
       return
     }
@@ -117,21 +125,24 @@ export default function Navigation() {
       .single()
 
     if (biz) {
-      const expired = biz.subscription_status === 'trial' &&
-        new Date() > new Date(biz.trial_ends_at)
+      const hoy = new Date()
+      hoy.setHours(0, 0, 0, 0)
+      const vencimiento = new Date(biz.trial_ends_at)
+      vencimiento.setHours(0, 0, 0, 0)
+      const expired = biz.subscription_status === 'trial' && hoy > vencimiento
 
       if (expired) {
         await supabase.from('businesses')
           .update({ subscription_status: 'expired' })
           .eq('id', appUser.business_id)
-        setAppState('subscription_expired')
+        updateAppState('subscription_expired')
       } else if (biz.subscription_status === 'expired') {
-        setAppState('subscription_expired')
+        updateAppState('subscription_expired')
       } else {
-        setAppState('admin')
+        updateAppState('admin')
       }
     } else {
-      setAppState('admin')
+      updateAppState('admin')
     }
     setLoading(false)
   }

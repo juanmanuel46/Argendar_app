@@ -45,6 +45,7 @@ export default function AppointmentsScreen() {
   const [appointmentToCancel, setAppointmentToCancel] = useState(null)
   const [businessCategory, setBusinessCategory] = useState(null)
   const { toast, showToast, hideToast } = useToast()
+  const [todosLosTurnos, setTodosLosTurnos] = useState([])
 
   useFocusEffect(useCallback(() => {
     fetchAll()
@@ -73,6 +74,7 @@ export default function AppointmentsScreen() {
     setLoading(true)
     const fechaStr = toISO(fecha)
 
+    // Query filtrada para la lista
     let q = supabase
       .from('appointments')
       .select('*, clients(name, phone), services(name, price, duration_minutes), employees(name)')
@@ -82,8 +84,16 @@ export default function AppointmentsScreen() {
 
     if (filtro) q = q.eq('status', filtro)
 
+    // Query sin filtro para los contadores
+    const { data: todos } = await supabase
+      .from('appointments')
+      .select('status')
+      .eq('business_id', businessIdRef.current)
+      .eq('date', fechaStr)
+
     const { data } = await q
     setTurnos(data ?? [])
+    setTodosLosTurnos(todos ?? [])
     setLoading(false)
     setRefreshing(false)
   }
@@ -169,10 +179,10 @@ export default function AppointmentsScreen() {
 
       <View style={s.summary}>
         {[
-          { label: 'Total',       value: turnos.length,                                        color: colors.primary,  filtro: null },
-          { label: 'Pendientes',  value: turnos.filter(t => t.status === 'pending').length,    color: colors.warning,  filtro: 'pending' },
-          { label: 'Completados', value: completados,                                          color: colors.success,  filtro: 'done' },
-          { label: 'Cancelados',  value: turnos.filter(t => t.status === 'cancelled').length,  color: colors.danger,   filtro: 'cancelled' },
+          { label: 'Total',       value: todosLosTurnos.length,                                           color: colors.primary,  filtro: null },
+          { label: 'Pendientes',  value: todosLosTurnos.filter(t => t.status === 'pending').length,        color: colors.warning,  filtro: 'pending' },
+          { label: 'Completados', value: todosLosTurnos.filter(t => t.status === 'done').length,           color: colors.success,  filtro: 'done' },
+          { label: 'Cancelados',  value: todosLosTurnos.filter(t => t.status === 'cancelled').length,      color: colors.danger,   filtro: 'cancelled' },
         ].map((item, i) => (
           <TouchableOpacity
             key={item.label}
