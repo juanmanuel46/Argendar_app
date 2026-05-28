@@ -1,25 +1,55 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ActivityIndicator, Alert, StatusBar, KeyboardAvoidingView, Platform
+  ActivityIndicator, StatusBar, KeyboardAvoidingView, Platform,
+  DeviceEventEmitter
 } from 'react-native'
 import { Feather } from '@expo/vector-icons'
 import { supabase } from '../../lib/supabase'
 import { colors, radius, spacing } from '../../lib/theme'
+import { Toast, useToast } from '../../components/Toast'
 
-export default function ResetPasswordScreen({ navigation }) {
+export default function ResetPasswordScreen({ navigation, route }) {
   const [password,        setPassword]        = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading,         setLoading]         = useState(false)
   const [showPassword,    setShowPassword]    = useState(false)
+  const [sessionReady,    setSessionReady]    = useState(false)
+  const { toast, showToast, hideToast } = useToast()
+
+  useEffect(() => {
+    // Verificar si hay sesión activa al montar la pantalla
+    async function checkSession() {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        setSessionReady(true)
+      } else {
+        showToast('El link expiró. Pedí una nueva invitación.', 'error')
+      }
+    }
+    checkSession()
+
+    // Escuchar cambios de sesión (cuando Supabase procesa el token del link)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if ((event === 'SIGNED_IN' || event === 'PASSWORD_RECOVERY') && session) {
+        setSessionReady(true)
+      }
+    })
+    return () => subscription.unsubscribe()
+  }, [])
 
   async function handleReset() {
     if (password.length < 6) {
-      Alert.alert('Error', 'La contraseña debe tener al menos 6 caracteres')
+      showToast('La contraseña debe tener al menos 6 caracteres', 'warning')
       return
     }
     if (password !== confirmPassword) {
-      Alert.alert('Error', 'Las contraseñas no coinciden')
+      showToast('Las contraseñas no coinciden', 'warning')
+      return
+    }
+
+    if (!sessionReady) {
+      showToast('El link expiró. Pedí una nueva invitación.', 'error')
       return
     }
 
@@ -28,16 +58,12 @@ export default function ResetPasswordScreen({ navigation }) {
       const { error } = await supabase.auth.updateUser({ password })
       if (error) throw error
 
-Alert.alert(
-  '✓ Contraseña actualizada',
-  'Ya podés ingresar con tu nueva contraseña',
-  [{ text: 'OK', onPress: () => {
-    const { DeviceEventEmitter } = require('react-native')
-    DeviceEventEmitter.emit('recheck_user_state')
-  }}]
-)
+      showToast('Contraseña actualizada', 'success')
+      setTimeout(() => {
+        DeviceEventEmitter.emit('recheck_user_state')
+      }, 1500)
     } catch (e) {
-      Alert.alert('Error', e.message)
+      showToast(e.message, 'error')
     } finally {
       setLoading(false)
     }
@@ -89,7 +115,7 @@ Alert.alert(
         <TouchableOpacity
           style={s.btn}
           onPress={handleReset}
-          disabled={loading}
+          disabled={loading || !sessionReady}
           activeOpacity={0.85}
         >
           {loading
@@ -98,6 +124,7 @@ Alert.alert(
           }
         </TouchableOpacity>
       </View>
+      <Toast visible={toast.visible} message={toast.message} type={toast.type} onHide={hideToast} />
     </KeyboardAvoidingView>
   )
 }
