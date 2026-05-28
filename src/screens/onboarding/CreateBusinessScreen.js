@@ -4,6 +4,7 @@ import {
   StyleSheet, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView
 } from 'react-native'
 import { supabase } from '../../lib/supabase'
+import { Toast, useToast } from '../../components/Toast'
 
 const CATEGORIAS = [
   { icon: '✂️', nombre: 'Barbería' },
@@ -36,6 +37,7 @@ export default function CreateBusinessScreen({ navigation }) {
   const [slug,       setSlug]       = useState('')
   const [descripcion, setDescripcion] = useState('')
   const [loading,    setLoading]    = useState(false)
+  const { toast, showToast, hideToast } = useToast()
 
   function onNombreChange(text) {
     setNombre(text)
@@ -43,9 +45,9 @@ export default function CreateBusinessScreen({ navigation }) {
   }
 
 async function handleCrear() {
-    if (!nombre.trim())    { Alert.alert('Ingresá el nombre de tu negocio'); return }
-    if (!categoria)        { Alert.alert('Elegí una categoría'); return }
-    if (!slug.trim())      { Alert.alert('El slug no puede estar vacío'); return }
+    if (!nombre.trim())    { showToast('Ingresá el nombre de tu negocio', 'warning'); return }
+    if (!categoria)        { showToast('Elegí una categoría', 'warning'); return }
+    if (!slug.trim())      { showToast('El slug no puede estar vacío', 'warning'); return }
 
     setLoading(true)
 
@@ -72,13 +74,8 @@ async function handleCrear() {
         .select()
         .single();
 
-      console.log('═══ RESPUESTA SUPABASE ═══')
-      console.log('error:', JSON.stringify(bizError, null, 2))
-      console.log('data:', JSON.stringify(biz, null, 2))
-      console.log('══════════════════════════')
-
       if (bizError) {
-        Alert.alert('Error', bizError.message);
+        showToast(bizError.message, 'error')
         setLoading(false);
         return;
       }
@@ -172,6 +169,7 @@ async function handleCrear() {
           }
         </TouchableOpacity>
 
+      <Toast visible={toast.visible} message={toast.message} type={toast.type} onHide={hideToast} />
       </ScrollView>
     </KeyboardAvoidingView>
   )

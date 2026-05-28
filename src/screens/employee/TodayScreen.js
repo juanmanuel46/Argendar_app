@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase'
 import { colors, radius, spacing } from '../../lib/theme'
 import CancelAppointmentModal from '../../components/CancelAppointmentModal'
 import { getCategoryIcon } from '../../lib/categoryIcons'
+import { Toast, useToast } from '../../components/Toast'
 
 const STATUS_CONFIG = {
   pending:   { label: 'Pendiente',   color: colors.warning, bg: colors.warningBg,  icon: 'clock' },
@@ -75,6 +76,7 @@ export default function TodayScreen() {
   const [cancelModalVisible, setCancelModalVisible]   = useState(false)
   const [appointmentToCancel, setAppointmentToCancel] = useState(null)
   const [businessCategory, setBusinessCategory] = useState(null)
+  const { toast, showToast, hideToast } = useToast()
 
   useFocusEffect(useCallback(() => { fetchTurnos() }, []))
 
@@ -131,7 +133,7 @@ export default function TodayScreen() {
       .eq('id', appointmentToCancel.id)
 
     if (error) {
-      Alert.alert('Error', error.message)
+      showToast(error.message, 'error')
       return
     }
 
@@ -215,6 +217,7 @@ export default function TodayScreen() {
         }}
         onConfirm={confirmarCancelacion}
       />
+      <Toast visible={toast.visible} message={toast.message} type={toast.type} onHide={hideToast} />
     </View>
   )
 }

@@ -1,11 +1,12 @@
 import { useState, useCallback, useRef } from 'react'
-import {View, Text, FlatList, TouchableOpacity, StyleSheet,ActivityIndicator, Alert, RefreshControl, StatusBar} from 'react-native'
+import { View, Text, FlatList, TouchableOpacity, StyleSheet,ActivityIndicator, Alert, RefreshControl, StatusBar} from 'react-native'
 import { useFocusEffect } from '@react-navigation/native'
 import { Feather } from '@expo/vector-icons'
 import { supabase } from '../../lib/supabase'
 import { colors, radius, spacing } from '../../lib/theme'
 import CancelAppointmentModal from '../../components/CancelAppointmentModal'
 import { getCategoryIcon } from '../../lib/categoryIcons'
+import { Toast, useToast } from '../../components/Toast'
 
 const STATUS = {
   pending:   { label: 'Pendiente',  color: colors.warning, bg: colors.warningBg,  icon: 'clock' },
@@ -43,6 +44,7 @@ export default function AppointmentsScreen() {
   const [cancelModalVisible, setCancelModalVisible]   = useState(false)
   const [appointmentToCancel, setAppointmentToCancel] = useState(null)
   const [businessCategory, setBusinessCategory] = useState(null)
+  const { toast, showToast, hideToast } = useToast()
 
   useFocusEffect(useCallback(() => {
     fetchAll()
@@ -97,7 +99,7 @@ export default function AppointmentsScreen() {
       .from('appointments')
       .update({ status: 'done' }) 
       .eq('id', id)
-    if (error) { Alert.alert('Error', error.message); return }
+    if (error) { showToast(error.message, 'error'); return }
     setTurnos(prev => prev.map(t => t.id === id ? { ...t, status: 'done' } : t))
   }
 
@@ -119,10 +121,7 @@ export default function AppointmentsScreen() {
       })
       .eq('id', appointmentToCancel.id)
 
-    if (error) {
-      Alert.alert('Error', error.message)
-      return
-    }
+    if (error) { showToast(error.message, 'error'); return }
 
     setTurnos(prev => prev.map(t => 
       t.id === appointmentToCancel.id 
@@ -213,7 +212,7 @@ export default function AppointmentsScreen() {
                 </View>
                 <Text style={s.emptyTitle}>Sin turnos</Text>
                 <Text style={s.emptyText}>
-                  No hay turnos {filtro ? FILTROS.find(f=>f.value===filtro)?.label?.toLowerCase() : ''} para {formatDate(fecha).toLowerCase()}
+                  No hay turnos {filtro ? filtro : ''}
                 </Text>
               </View>
             }
@@ -311,6 +310,7 @@ export default function AppointmentsScreen() {
         }}
         onConfirm={confirmarCancelacion}
       />
+      <Toast visible={toast.visible} message={toast.message} type={toast.type} onHide={hideToast} />
     </View>
   )
 }

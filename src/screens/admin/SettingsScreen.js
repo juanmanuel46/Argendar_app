@@ -256,7 +256,7 @@ async function guardarEmpleado() {
             </View>
             <Feather name="chevron-right" size={16} color={colors.textMuted} />
           </TouchableOpacity>
-
+          </View>
           <View style={s.divider} />
 
           <TouchableOpacity

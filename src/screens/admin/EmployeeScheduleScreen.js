@@ -13,6 +13,7 @@ import {
 import { Feather } from '@expo/vector-icons'
 import { supabase } from '../../lib/supabase'
 import { colors, typography, spacing, radius } from '../../lib/theme'
+import { Toast, useToast } from '../../components/Toast'
 
 const DIAS = [
   { id: 1, nombre: 'Lunes',     corto: 'L' },
@@ -32,6 +33,7 @@ export default function EmployeeScheduleScreen({ route, navigation }) {
   const [loading, setLoading]   = useState(true)
   const [saving, setSaving]     = useState(false)
   const [horarios, setHorarios] = useState({})
+  const { toast, showToast, hideToast } = useToast()
 
   useEffect(() => {
     navigation.setOptions({ title: employee.name })
@@ -94,7 +96,8 @@ export default function EmployeeScheduleScreen({ route, navigation }) {
       }
     }
     setSaving(false)
-    Alert.alert('✓ Horarios guardados', '', [{ text: 'OK', onPress: () => navigation.goBack() }])
+    showToast('Horarios guardados', 'success')
+    setTimeout(() => navigation.goBack(), 1500)
   }
 
   if (loading) {
@@ -251,6 +254,7 @@ export default function EmployeeScheduleScreen({ route, navigation }) {
           }
         </TouchableOpacity>
       </View>
+      <Toast visible={toast.visible} message={toast.message} type={toast.type} onHide={hideToast} />
     </View>
   )
 }

@@ -7,6 +7,7 @@ import {
 import { Feather } from '@expo/vector-icons'
 import { supabase } from '../../lib/supabase'
 import { colors, radius, spacing } from '../../lib/theme'
+import { Toast, useToast } from '../../components/Toast'
 
 const SUGERIDOS = [
   { nombre: 'Corte de cabello', duracion: 30,  precio: 3500 },
@@ -26,10 +27,11 @@ export default function AddServicesScreen({ route }) {
   const [precio,    setPrecio]    = useState('')
   const [duracion,  setDuracion]  = useState('30')
   const [saving,    setSaving]    = useState(false)
-
+  const { toast, showToast, hideToast } = useToast()
+  
   function agregarServicio() {
-    if (!nombre.trim()) { Alert.alert('Ingresá el nombre del servicio'); return }
-    if (!precio.trim()) { Alert.alert('Ingresá el precio'); return }
+    if (!nombre.trim()) { showToast('Ingresá el nombre del servicio', 'warning'); return }
+    if (!precio.trim()) { showToast('Ingresá el precio', 'warning'); return }
     setServicios(prev => [...prev, {
       id:      Date.now().toString(),
       nombre:  nombre.trim(),
@@ -49,10 +51,7 @@ export default function AddServicesScreen({ route }) {
   }
 
   async function guardar() {
-    if (servicios.length === 0) {
-      Alert.alert('Agregá al menos un servicio')
-      return
-    }
+    if (servicios.length === 0) { showToast('Agregá al menos un servicio', 'warning'); return }
     setSaving(true)
     const rows = servicios.map(s => ({
       business_id:      businessId,
@@ -62,7 +61,7 @@ export default function AddServicesScreen({ route }) {
       active:           true,
     }))
     const { error } = await supabase.from('services').insert(rows)
-    if (error) { Alert.alert('Error', error.message); setSaving(false); return }
+    if (error) { showToast(error.message, 'error'); setSaving(false); return }
     setSaving(false)
 
     // Disparar re-check de estado en el navigation root

@@ -1,23 +1,13 @@
 import { useState, useCallback, useRef } from 'react'
-import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-  ActivityIndicator,
-  RefreshControl,
-  StatusBar,
-  Animated,
-  Pressable,
-  Alert,
-  TouchableOpacity,
-} from 'react-native'
+import { View, Text, ScrollView, StyleSheet, ActivityIndicator, RefreshControl, StatusBar, Animated, Pressable, Alert, TouchableOpacity,} from 'react-native'
 import { useFocusEffect } from '@react-navigation/native'
 import { Feather } from '@expo/vector-icons'
 import { supabase } from '../../lib/supabase'
 import { colors } from '../../lib/theme'
 import * as Clipboard from 'expo-clipboard'
-/* -------------------- Stat Card -------------------- */
+import { Toast, useToast } from '../../components/Toast'
+
+
 function StatCard({ icon, label, value, color }) {
   return (
     <View style={s.statCard}>
@@ -47,7 +37,7 @@ export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false)
   const [data, setData] = useState(null)
   const [periodo, setPeriodo] = useState('hoy')
-
+  const { toast, showToast, hideToast } = useToast()
   const fade = useRef(new Animated.Value(1)).current
 
   useFocusEffect(
@@ -124,7 +114,6 @@ export default function DashboardScreen() {
     // 3. Hacer el join manual
     const serviciosMap = {}
     ;(servicios || []).forEach(s => { serviciosMap[s.id] = s })
-    console.log('serviciosMap keys:', Object.keys(serviciosMap))
 
     const list = (turnos || []).map(t => ({
       ...t,
@@ -264,7 +253,7 @@ export default function DashboardScreen() {
             onPress={async () => {
               const url = `argendar.com.ar/${slug}`
               await Clipboard.setStringAsync(url)
-              Alert.alert('✓ Copiado', `${url}\n\nYa podés pegarlo donde quieras`)
+              showToast('Link copiado al portapapeles', 'success')
             }}
             activeOpacity={0.7}
           >
@@ -280,6 +269,7 @@ export default function DashboardScreen() {
 
         </Animated.View>
       </ScrollView>
+      <Toast visible={toast.visible} message={toast.message} type={toast.type} onHide={hideToast} />
     </View>
   )
 }
