@@ -63,8 +63,30 @@ export default function Navigation() {
 
   // ── Deep links ─────────────────────────────────────────────────────
   useEffect(() => {
+    async function handleResetLink(url) {
+      if (!url?.includes('reset-password')) return
+      updateAppState('reset_password')
+      setLoading(false)
+      try {
+        // Supabase envía los tokens en el hash (#) o como query param (?code= para PKCE)
+        const afterHash  = url.includes('#') ? url.split('#')[1] : ''
+        const afterQuery = url.includes('?') ? url.split('?')[1] : ''
+        const params = new URLSearchParams(afterHash || afterQuery)
+        const accessToken  = params.get('access_token')
+        const refreshToken = params.get('refresh_token')
+        const code         = params.get('code')
+        if (accessToken && refreshToken) {
+          await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+        } else if (code) {
+          await supabase.auth.exchangeCodeForSession(code)
+        }
+      } catch (e) {
+        console.warn('Error parsing auth deep link:', e)
+      }
+    }
+
     const sub = Linking.addEventListener('url', ({ url }) => {
-      if (url?.includes('reset-password')) updateAppState('reset_password')
+      if (url?.includes('reset-password')) handleResetLink(url)
       if (url?.includes('subscription-result')) {
         supabase.auth.getSession().then(({ data: { session } }) => {
           if (session) checkUserState(session.user)
@@ -73,7 +95,7 @@ export default function Navigation() {
     })
 
     Linking.getInitialURL().then(url => {
-      if (url?.includes('reset-password')) updateAppState('reset_password')
+      if (url?.includes('reset-password')) handleResetLink(url)
     })
 
     return () => sub.remove()

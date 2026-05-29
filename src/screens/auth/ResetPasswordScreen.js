@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   ActivityIndicator, StatusBar, KeyboardAvoidingView, Platform,
@@ -8,7 +8,6 @@ import { Feather } from '@expo/vector-icons'
 import { supabase } from '../../lib/supabase'
 import { colors, radius, spacing } from '../../lib/theme'
 import { Toast, useToast } from '../../components/Toast'
-import { useState, useEffect, useRef } from 'react'
 
 export default function ResetPasswordScreen({ navigation, route }) {
   const [password,        setPassword]        = useState('')
