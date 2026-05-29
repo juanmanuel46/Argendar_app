@@ -173,6 +173,7 @@ export default function AddServicesScreen({ route }) {
           }
         </TouchableOpacity>
 
+        <Toast visible={toast.visible} message={toast.message} type={toast.type} onHide={hideToast} />
       </View>
     </KeyboardAvoidingView>
   )

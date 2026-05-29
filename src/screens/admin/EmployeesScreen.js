@@ -54,7 +54,7 @@ export default function EmployeesScreen() {
         map[t.employee_id] = { total: 0, ok: 0, cancel: 0 }
       }
       map[t.employee_id].total++
-      if (t.status === 'completed') map[t.employee_id].ok++
+      if (t.status === 'done') map[t.employee_id].ok++
       if (t.status === 'cancelled') map[t.employee_id].cancel++
     }
 

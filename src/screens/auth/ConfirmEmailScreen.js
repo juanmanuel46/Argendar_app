@@ -18,7 +18,7 @@ export default function ConfirmEmailScreen({ route, navigation }) {
 
   async function reenviar() {
     await supabase.auth.resend({ type: 'signup', email })
-    Alert.alert('Listo ✓', 'Te reenviamos el email de confirmación.')
+    Alert.alert('Listo ✓', 'Te reenviamos el email de confirmación.')  
   }
   return (
     <View style={s.root}>

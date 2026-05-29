@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase'
 import { colors, radius, spacing } from '../../lib/theme'
 import { Image } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
+import { Toast, useToast } from '../../components/Toast'
 
 const CATEGORIAS = [
   { icon: '✂️', nombre: 'Barbería' },   { icon: '💇', nombre: 'Peluquería' },
@@ -25,6 +26,7 @@ export default function EditBusinessScreen({ route, navigation }) {
   const [allowEmp, setAllowEmp] = useState(false)
   const [eAvatarUri,   setEAvatarUri]   = useState(null)
   const [currentLogo, setCurrentLogo] = useState(null)
+  const { toast, showToast, hideToast } = useToast()
 
   useEffect(() => {
     fetchBiz()
@@ -82,7 +84,7 @@ async function uploadLogo(uri, businessId) {
           text: 'Cámara',
           onPress: async () => {
             const { status } = await ImagePicker.requestCameraPermissionsAsync()
-            if (status !== 'granted') { Alert.alert('Permiso de cámara denegado'); return }
+            if (status !== 'granted') { showToast('Permiso de cámara denegado', 'error'); return }
             const r = await ImagePicker.launchCameraAsync({
               mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1, 1], quality: 0.6,
             })
@@ -93,7 +95,7 @@ async function uploadLogo(uri, businessId) {
           text: 'Galería',
           onPress: async () => {
             const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
-            if (status !== 'granted') { Alert.alert('Permiso de galería denegado'); return }
+            if (status !== 'granted') { showToast('Permiso de galería denegado', 'error'); return }
             const r = await ImagePicker.launchImageLibraryAsync({
               mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1, 1], quality: 0.6,
             })
@@ -107,7 +109,7 @@ async function uploadLogo(uri, businessId) {
   
   async function guardar() {
     if (!nombre.trim()) {
-      Alert.alert('El nombre es requerido')
+      showToast('El nombre es requerido', 'warning')
       return
     }
 
@@ -135,12 +137,11 @@ async function uploadLogo(uri, businessId) {
 
       if (error) throw error
 
-      Alert.alert('✓ Guardado', 'Los datos del negocio se actualizaron', [
-        { text: 'OK', onPress: () => navigation.goBack() }
-      ])
+      showToast('Negocio actualizado', 'success')
+      setTimeout(() => navigation.goBack(), 1500)
 
     } catch (err) {
-      Alert.alert('Error', err.message)
+      showToast(err.message, 'error')
     } finally {
       setSaving(false)
     }
@@ -236,6 +237,7 @@ async function uploadLogo(uri, businessId) {
             </>
         }
       </TouchableOpacity>
+      <Toast visible={toast.visible} message={toast.message} type={toast.type} onHide={hideToast} />
     </ScrollView>
   )
 }
