@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Linking } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Linking, DeviceEventEmitter } from 'react-native'
 import { supabase } from '../../lib/supabase'
 
 export default function SubscriptionScreen() {
   const [loading,    setLoading]    = useState(false)
+  const [checking,   setChecking]   = useState(false)
   const [businessId, setBusinessId] = useState(null)
   const [negocio,    setNegocio]    = useState(null)
 
@@ -20,34 +21,53 @@ export default function SubscriptionScreen() {
     fetchData()
   }, [])
 
+  // Cuando el usuario vuelve de MP via deep link argendar://subscription-result
+  useEffect(() => {
+    const sub = Linking.addEventListener('url', ({ url }) => {
+      if (url?.includes('subscription-result')) recheckSubscription()
+    })
+    return () => sub.remove()
+  }, [])
+
+  async function recheckSubscription() {
+    setChecking(true)
+    // Pequeña espera por si el webhook de MP tarda unos segundos
+    await new Promise(r => setTimeout(r, 2000))
+    DeviceEventEmitter.emit('recheck_user_state')
+    setChecking(false)
+  }
+
   async function handlePagar() {
-    // TODO: Integrar Mercado Pago cuando esté listo el backend
-    // Por ahora abrimos el link de pago manual
-    Alert.alert(
-      'Activar suscripción',
-      'Para activar tu suscripción por $5 USD/mes, contactanos por WhatsApp y te enviamos el link de pago.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Contactar', onPress: () => Linking.openURL('https://wa.me/5491100000000?text=Quiero%20activar%20mi%20suscripci%C3%B3n%20de%20Argendar%20-%20Negocio:%20' + negocio?.name) },
-      ]
-    )
+    if (!businessId) return
+    setLoading(true)
+    try {
+      const { data, error } = await supabase.functions.invoke('create-subscription', {
+        body: { business_id: businessId },
+      })
+
+      if (error || !data?.init_point) {
+        throw new Error(error?.message || 'No se pudo crear el link de pago')
+      }
+
+      await Linking.openURL(data.init_point)
+    } catch (e) {
+      Alert.alert('Error', 'No se pudo iniciar el pago. Intentá de nuevo en unos minutos.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function handleCerrarSesion() {
     await supabase.auth.signOut()
   }
 
-  // Función para activar manualmente (para testing / admin)
-  async function activarManual() {
-    if (!businessId) return
-    setLoading(true)
-    await supabase.from('businesses').update({
-      subscription_status: 'active',
-      subscription_ends_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-    }).eq('id', businessId)
-    // Refrescar sesión para que navigation detecte el cambio
-    await supabase.auth.refreshSession()
-    setLoading(false)
+  if (checking) {
+    return (
+      <View style={[s.container, { justifyContent: 'center' }]}>
+        <ActivityIndicator color="#7C5CFC" size="large" />
+        <Text style={s.checkingText}>Verificando pago...</Text>
+      </View>
+    )
   }
 
   return (
@@ -114,4 +134,5 @@ const s = StyleSheet.create({
   garantia:        { fontSize: 12, color: '#555', marginBottom: 24 },
   btnLogout:       { padding: 12 },
   btnLogoutText:   { color: '#555', fontSize: 14 },
+  checkingText:    { color: '#aaa', fontSize: 15, marginTop: 16, textAlign: 'center' },
 })

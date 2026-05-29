@@ -1,4 +1,16 @@
 
+[functions.create-subscription]
+enabled = true
+verify_jwt = false
+import_map = "./functions/create-subscription/deno.json"
+entrypoint = "./functions/create-subscription/index.ts"
+
+[functions.mercadopago-webhook]
+enabled = true
+verify_jwt = false
+import_map = "./functions/mercadopago-webhook/deno.json"
+entrypoint = "./functions/mercadopago-webhook/index.ts"
+
 [functions.notify-new-appointment]
 enabled = true
 verify_jwt = false

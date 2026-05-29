@@ -65,6 +65,11 @@ export default function Navigation() {
   useEffect(() => {
     const sub = Linking.addEventListener('url', ({ url }) => {
       if (url?.includes('reset-password')) updateAppState('reset_password')
+      if (url?.includes('subscription-result')) {
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          if (session) checkUserState(session.user)
+        })
+      }
     })
 
     Linking.getInitialURL().then(url => {
