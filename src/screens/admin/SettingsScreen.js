@@ -36,6 +36,10 @@ export default function SettingsScreen({ navigation }) {
   const [eAvatarUri,   setEAvatarUri]   = useState(null)
   const [uploadingImg, setUploadingImg] = useState(false)
   const [eServiciosSeleccionados, setEServiciosSeleccionados] = useState(new Set())
+  const [fechasBloqueadas,        setFechasBloqueadas]        = useState([])
+  const [modalBloqueo,            setModalBloqueo]            = useState(false)
+  const [bFecha,                  setBFecha]                  = useState('')
+  const [bMotivo,                 setBMotivo]                 = useState('')
 
   const { toast, showToast, hideToast } = useToast()
   const { sheet, showSheet, hideSheet } = useActionSheet()
@@ -50,15 +54,49 @@ export default function SettingsScreen({ navigation }) {
     if (!appUser) { setLoading(false); return }
     setBusinessId(appUser.business_id)
 
-    const [{ data: biz }, { data: servs }, { data: emps }] = await Promise.all([
+    const hoy = new Date().toISOString().split('T')[0]
+    const [{ data: biz }, { data: servs }, { data: emps }, { data: bloqs }] = await Promise.all([
       supabase.from('businesses').select('*').eq('id', appUser.business_id).single(),
       supabase.from('services').select('*').eq('business_id', appUser.business_id).order('name'),
       supabase.from('employees').select('*').eq('business_id', appUser.business_id).order('name'),
+      supabase.from('blocked_dates').select('*').eq('business_id', appUser.business_id).is('employee_id', null).gte('date', hoy).order('date'),
     ])
     setNegocio(biz)
     setServicios(servs ?? [])
     setEmpleados(emps ?? [])
+    setFechasBloqueadas(bloqs ?? [])
     setLoading(false)
+  }
+
+  // ── Helpers fecha ──────────────────────────────────────────────────────
+  function parseFecha(ddmmyyyy) {
+    const p = ddmmyyyy.trim().split('/')
+    if (p.length !== 3 || p[2].length < 4) return null
+    return `${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`
+  }
+  function formatFecha(iso) {
+    if (!iso) return ''
+    const [y, m, d] = iso.split('-')
+    return `${d}/${m}/${y}`
+  }
+
+  // ── Días bloqueados ─────────────────────────────────────────────────────
+  async function agregarFechaBloqueada() {
+    const iso = parseFecha(bFecha)
+    if (!iso) { showToast('Fecha inválida. Usá DD/MM/AAAA', 'warning'); return }
+    const { error } = await supabase.from('blocked_dates').insert({ business_id: businessId, date: iso, reason: bMotivo.trim() || null })
+    if (error) { showToast('No se pudo bloquear la fecha', 'error'); return }
+    setBFecha(''); setBMotivo(''); setModalBloqueo(false)
+    fetchData()
+  }
+  function eliminarFechaBloqueada(id) {
+    showSheet({
+      title: 'Desbloquear día',
+      message: '¿Querés volver a habilitar este día?',
+      options: [{ label: 'Desbloquear', icon: 'unlock', onPress: async () => {
+        await supabase.from('blocked_dates').delete().eq('id', id); fetchData()
+      }}],
+    })
   }
 
   // ── Toggle selección empleados ──────────────────────────────────────────
@@ -419,6 +457,36 @@ async function guardarEmpleado() {
           )}
         </View>
 
+        {/* ── Días bloqueados ── */}
+        <View style={s.seccionRow}>
+          <Text style={s.seccion}>Días bloqueados</Text>
+          <TouchableOpacity onPress={() => { setBFecha(''); setBMotivo(''); setModalBloqueo(true) }}>
+            <Text style={s.addBtn}>+ Agregar</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={s.card}>
+          {fechasBloqueadas.length === 0 && (
+            <Text style={s.emptyMsg}>No hay días bloqueados.</Text>
+          )}
+          {fechasBloqueadas.map((fb, i) => (
+            <View key={fb.id}>
+              {i > 0 && <View style={s.divider} />}
+              <View style={s.row}>
+                <View style={[s.iconBox, { backgroundColor: colors.warningBg }]}>
+                  <Feather name="slash" size={14} color={colors.warning} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.rowTitle}>{formatFecha(fb.date)}</Text>
+                  <Text style={s.rowSub}>{fb.reason || 'Sin motivo'}</Text>
+                </View>
+                <TouchableOpacity onPress={() => eliminarFechaBloqueada(fb.id)} style={{ padding: 6 }}>
+                  <Feather name="trash-2" size={14} color={colors.danger} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))}
+        </View>
+
         {/* ── Cuenta ── */}
         <Text style={s.seccion}>Cuenta</Text>
         <View style={s.card}>
@@ -516,6 +584,29 @@ async function guardarEmpleado() {
       </Modal>
       <Toast visible={toast.visible} message={toast.message} type={toast.type} onHide={hideToast} />
       <ActionSheet visible={sheet.visible} title={sheet.title} message={sheet.message} options={sheet.options} onClose={hideSheet} />
+
+      {/* ── Modal Día bloqueado ── */}
+      <Modal visible={modalBloqueo} animationType="slide" transparent>
+        <View style={s.overlay}>
+          <View style={s.sheet}>
+            <View style={s.handle} />
+            <Text style={s.sheetTitle}>Bloquear día</Text>
+            <Text style={s.sheetLabel}>Fecha (DD/MM/AAAA)</Text>
+            <TextInput style={s.sheetInput} value={bFecha} onChangeText={setBFecha} placeholder="25/12/2026" placeholderTextColor={colors.textMuted} keyboardType="numeric" />
+            <Text style={s.sheetLabel}>Motivo (opcional)</Text>
+            <TextInput style={s.sheetInput} value={bMotivo} onChangeText={setBMotivo} placeholder="Feriado, vacaciones..." placeholderTextColor={colors.textMuted} />
+            <Text style={s.sheetHint}>Los clientes no podrán reservar turnos ese día.</Text>
+            <View style={s.sheetBtns}>
+              <TouchableOpacity style={s.sheetCancel} onPress={() => setModalBloqueo(false)}>
+                <Text style={s.sheetCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={s.sheetOk} onPress={agregarFechaBloqueada}>
+                <Text style={s.sheetOkText}>Bloquear</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </>
   )
 }
