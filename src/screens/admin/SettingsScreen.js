@@ -34,6 +34,7 @@ export default function SettingsScreen({ navigation }) {
   const [eEmail,       setEEmail]       = useState('')
   const [eAvatarUri,   setEAvatarUri]   = useState(null)
   const [uploadingImg, setUploadingImg] = useState(false)
+  const [eServiciosSeleccionados, setEServiciosSeleccionados] = useState(new Set())
 
   const { toast, showToast, hideToast } = useToast()
 
@@ -97,11 +98,26 @@ export default function SettingsScreen({ navigation }) {
   // ── Empleados ───────────────────────────────────────────────────────────
   function abrirNuevoEmpleado() {
     setEditEmpleado(null); setENombre(''); setERol(''); setEEmail(''); setEAvatarUri(null)
+    setEServiciosSeleccionados(new Set(servicios.map(s => s.id)))
     setModalEmpleado(true)
   }
-  function abrirEditarEmpleado(e) {
+  async function abrirEditarEmpleado(e) {
     setEditEmpleado(e); setENombre(e.name); setERol(e.role||''); setEEmail(e.email||'')
-    setEAvatarUri(e.avatar_url||null); setModalEmpleado(true)
+    setEAvatarUri(e.avatar_url||null)
+    const { data } = await supabase.from('employee_services').select('service_id').eq('employee_id', e.id)
+    setEServiciosSeleccionados(
+      !data || data.length === 0
+        ? new Set(servicios.map(s => s.id))
+        : new Set(data.map(d => d.service_id))
+    )
+    setModalEmpleado(true)
+  }
+  function toggleServicioEmpleado(sid) {
+    setEServiciosSeleccionados(prev => {
+      const next = new Set(prev)
+      next.has(sid) ? next.delete(sid) : next.add(sid)
+      return next
+    })
   }
 // ── Picker: cámara O galería ─────────────────────────────────────────
 async function pickImage() {
@@ -207,6 +223,17 @@ async function guardarEmpleado() {
       }
     } else {
       showToast(`${eNombre} fue agregado`, 'success')
+    }
+  }
+
+  const empId = editEmpleado ? editEmpleado.id : empInsertado?.id
+  if (empId) {
+    const todosSeleccionados = eServiciosSeleccionados.size === servicios.length
+    await supabase.from('employee_services').delete().eq('employee_id', empId)
+    if (!todosSeleccionados && eServiciosSeleccionados.size > 0) {
+      await supabase.from('employee_services').insert(
+        [...eServiciosSeleccionados].map(sid => ({ employee_id: empId, service_id: sid }))
+      )
     }
   }
 
@@ -470,6 +497,18 @@ async function guardarEmpleado() {
             <Text style={s.sheetHint}>
               Con el email, el empleado puede descargar la app e iniciar sesión para ver sus turnos.
             </Text>
+            <Text style={s.sheetLabel}>Servicios que puede realizar</Text>
+            {servicios.length === 0
+              ? <Text style={s.sheetHint}>No hay servicios configurados</Text>
+              : servicios.map(serv => (
+                  <TouchableOpacity key={serv.id} style={s.srvRow} onPress={() => toggleServicioEmpleado(serv.id)} activeOpacity={0.7}>
+                    <Text style={[s.rowTitle, { flex: 1 }]}>{serv.name}</Text>
+                    <View style={[s.checkbox, eServiciosSeleccionados.has(serv.id) && s.checkboxOn]}>
+                      {eServiciosSeleccionados.has(serv.id) && <Feather name="check" size={11} color="white" />}
+                    </View>
+                  </TouchableOpacity>
+                ))
+            }
             <View style={s.sheetBtns}>
               <TouchableOpacity style={s.sheetCancel} onPress={() => setModalEmpleado(false)}>
                 <Text style={s.sheetCancelText}>Cancelar</Text>
@@ -517,6 +556,9 @@ const s = StyleSheet.create({
   sheetCancel:      { flex:1, borderWidth:1, borderColor:colors.border, borderRadius:radius.md, padding:14, alignItems:'center' },
   sheetCancelText:  { color:colors.textMuted, fontWeight:'600' },
   sheetOk:          { flex:1, backgroundColor:colors.primary, borderRadius:radius.md, padding:14, alignItems:'center' },
+  srvRow:           { flexDirection:'row', alignItems:'center', paddingVertical:10, borderBottomWidth:1, borderBottomColor:colors.border },
+  checkbox:         { width:22, height:22, borderRadius:6, borderWidth:1.5, borderColor:colors.border, justifyContent:'center', alignItems:'center' },
+  checkboxOn:       { backgroundColor:colors.primary, borderColor:colors.primary },
   sheetOkText:      { color:'white', fontWeight:'700' },
   fotoPicker:       { alignSelf:'center', marginBottom:8 },
   fotoImg:          { width:72, height:72, borderRadius:radius.full },
