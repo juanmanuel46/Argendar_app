@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import {View, Text, StyleSheet, TouchableOpacity, ScrollView,ActivityIndicator, Switch, Alert, TextInput, Modal, Image} from 'react-native'
+import {View, Text, StyleSheet, TouchableOpacity, ScrollView,ActivityIndicator, Switch, TextInput, Modal, Image} from 'react-native'
 import { useFocusEffect } from '@react-navigation/native'
 import { Feather } from '@expo/vector-icons'
 import * as ImagePicker from 'expo-image-picker'
@@ -7,6 +7,7 @@ import { supabase } from '../../lib/supabase'
 import { colors, radius, spacing } from '../../lib/theme'
 import { getCategoryIcon } from '../../lib/categoryIcons'
 import { Toast, useToast } from '../../components/Toast'
+import ActionSheet, { useActionSheet } from '../../components/ActionSheet'
 import * as Clipboard from 'expo-clipboard'
 
 export default function SettingsScreen({ navigation }) {
@@ -37,6 +38,7 @@ export default function SettingsScreen({ navigation }) {
   const [eServiciosSeleccionados, setEServiciosSeleccionados] = useState(new Set())
 
   const { toast, showToast, hideToast } = useToast()
+  const { sheet, showSheet, hideSheet } = useActionSheet()
 
   useFocusEffect(useCallback(() => { fetchData() }, []))
 
@@ -83,12 +85,13 @@ export default function SettingsScreen({ navigation }) {
     setModalServicio(false); fetchData()
   }
   async function eliminarServicio(s) {
-    Alert.alert('Eliminar servicio', `¿Eliminar "${s.name}"?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Eliminar', style: 'destructive', onPress: async () => {
+    showSheet({
+      title:   'Eliminar servicio',
+      message: `¿Eliminar "${s.name}"? Esta acción no se puede deshacer.`,
+      options: [{ label: 'Eliminar', icon: 'trash-2', variant: 'danger', onPress: async () => {
         await supabase.from('services').delete().eq('id', s.id); fetchData()
-      }},
-    ])
+      }}],
+    })
   }
   async function toggleServicio(s) {
     await supabase.from('services').update({ active: !s.active }).eq('id', s.id)
@@ -119,37 +122,27 @@ export default function SettingsScreen({ navigation }) {
       return next
     })
   }
-// ── Picker: cámara O galería ─────────────────────────────────────────
-async function pickImage() {
-  Alert.alert(
-    'Foto del empleado',
-    '¿De dónde querés elegir la foto?',
-    [
-      {
-        text: 'Cámara',
-        onPress: async () => {
-          const { status } = await ImagePicker.requestCameraPermissionsAsync()
-          if (status !== 'granted') { Alert.alert('Permiso de cámara denegado'); return }
-          const r = await ImagePicker.launchCameraAsync({
-            mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.6,
-          })
-          if (!r.canceled) setEAvatarUri(r.assets[0].uri)
-        }
-      },
-      {
-        text: 'Galería',
-        onPress: async () => {
-          const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
-          if (status !== 'granted') { Alert.alert('Permiso de galería denegado'); return }
-          const r = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.6,
-          })
-          if (!r.canceled) setEAvatarUri(r.assets[0].uri)
-        }
-      },
-      { text: 'Cancelar', style: 'cancel' }
-    ]
-  )
+async function launchCamera() {
+  const { status } = await ImagePicker.requestCameraPermissionsAsync()
+  if (status !== 'granted') { showToast('Permiso de cámara denegado', 'error'); return }
+  const r = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.6 })
+  if (!r.canceled) setEAvatarUri(r.assets[0].uri)
+}
+async function launchGallery() {
+  const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+  if (status !== 'granted') { showToast('Permiso de galería denegado', 'error'); return }
+  const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.6 })
+  if (!r.canceled) setEAvatarUri(r.assets[0].uri)
+}
+function pickImage() {
+  showSheet({
+    title:   'Foto del empleado',
+    message: '¿De dónde querés elegir la foto?',
+    options: [
+      { label: 'Cámara',  icon: 'camera', onPress: launchCamera  },
+      { label: 'Galería', icon: 'image',  onPress: launchGallery },
+    ],
+  })
 }
 async function uploadAvatar(uri) {
   try {
@@ -242,12 +235,13 @@ async function guardarEmpleado() {
   fetchData()
 }
   async function eliminarEmpleado(e) {
-    Alert.alert('Eliminar empleado', `¿Eliminar a ${e.name} del sistema? Esta acción no se puede deshacer.`, [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Eliminar', style: 'destructive', onPress: async () => {
+    showSheet({
+      title:   'Eliminar empleado',
+      message: `¿Eliminar a ${e.name} del sistema? Esta acción no se puede deshacer.`,
+      options: [{ label: 'Eliminar', icon: 'trash-2', variant: 'danger', onPress: async () => {
         await supabase.from('employees').delete().eq('id', e.id); fetchData()
-      }},
-    ])
+      }}],
+    })
   }
   async function toggleEmpleadoActivo(e) {
     await supabase.from('employees').update({ active: !e.active }).eq('id', e.id)
@@ -521,6 +515,7 @@ async function guardarEmpleado() {
         </View>
       </Modal>
       <Toast visible={toast.visible} message={toast.message} type={toast.type} onHide={hideToast} />
+      <ActionSheet visible={sheet.visible} title={sheet.title} message={sheet.message} options={sheet.options} onClose={hideSheet} />
     </>
   )
 }
