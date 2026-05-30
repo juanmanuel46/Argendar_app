@@ -70,7 +70,6 @@ async function uploadLogo(uri, businessId) {
       .getPublicUrl(path).data.publicUrl
 
   } catch (e) {
-    console.log('UPLOAD ERROR LOGO:', e)
     return null
   }
 }

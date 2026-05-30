@@ -84,7 +84,6 @@ async function handleCrear() {
       navigation.navigate('AddServices', { businessId: biz.id, businessName: biz.name });
 
     } catch (err) {
-      console.log("Error en el catch global:", err);
       setLoading(false);
     }
   }
