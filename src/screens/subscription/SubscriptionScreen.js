@@ -86,7 +86,7 @@ export default function SubscriptionScreen() {
         <View style={s.planTop}>
           <Text style={s.planNombre}>Plan Argendar</Text>
         </View>
-        <Text style={s.planPrecio}>$5 <Text style={s.planPrecioSub}>USD/mes</Text></Text>
+        <Text style={s.planPrecio}>$7.500 <Text style={s.planPrecioSub}>ARS/mes</Text></Text>
         <View style={s.planFeatures}>
           {[
             '✓ Reservas ilimitadas',

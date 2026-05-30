@@ -318,7 +318,7 @@ async function guardarEmpleado() {
                 {negocio?.subscription_status === 'trial' && diasTrial !== null
                   ? `${diasTrial} días restantes · Tocá para activar`
                   : negocio?.subscription_status === 'active'
-                  ? '$5 USD/mes'
+                  ? '$7.500 ARS/mes'
                   : 'Activá tu plan para seguir recibiendo reservas'}
               </Text>
             </View>

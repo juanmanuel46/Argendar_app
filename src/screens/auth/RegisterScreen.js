@@ -113,7 +113,7 @@ async function handleRegister() {
             </>}
           </TouchableOpacity>
 
-          <Text style={s.terminos}>Al registrarte aceptás los Términos de uso. $5 USD/mes después del período de prueba.</Text>
+          <Text style={s.terminos}>Al registrarte aceptás los Términos de uso. $7.500 ARS/mes después del período de prueba.</Text>
         </View>
 
         <TouchableOpacity style={s.loginRow} onPress={() => navigation.navigate('Login')}>
